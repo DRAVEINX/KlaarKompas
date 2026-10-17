@@ -68,7 +68,7 @@ for task in [
     "bundlePhoneRelease", "bundleTabletRelease",
 ]:
     require(task in workflow, f"CI includes {task}")
-require("actions/upload-artifact@v4" in workflow, "CI archives build artifacts")
+require("actions/upload-artifact@v7" in workflow, "CI archives build artifacts with the Node 24 action")
 
 # Ensure developer launchers target the same pinned Gradle version.
 wrapper_props = (ROOT / "gradle/wrapper/gradle-wrapper.properties").read_text(encoding="utf-8")
