@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -19,7 +21,7 @@ val releaseKeyAlias = System.getenv("ANDROID_UPLOAD_KEY_ALIAS")
 val releaseKeyPassword = System.getenv("ANDROID_UPLOAD_KEY_PASSWORD")
 val releaseSigningConfigured =
     !releaseKeystorePath.isNullOrBlank() &&
-        java.io.File(releaseKeystorePath).isFile &&
+        File(releaseKeystorePath).isFile &&
         !releaseKeystorePassword.isNullOrBlank() &&
         !releaseKeyAlias.isNullOrBlank() &&
         !releaseKeyPassword.isNullOrBlank()
@@ -57,7 +59,7 @@ android {
     signingConfigs {
         if (releaseSigningConfigured) {
             create("release") {
-                storeFile = java.io.File(requireNotNull(releaseKeystorePath))
+                storeFile = File(requireNotNull(releaseKeystorePath))
                 storePassword = requireNotNull(releaseKeystorePassword)
                 keyAlias = requireNotNull(releaseKeyAlias)
                 keyPassword = requireNotNull(releaseKeyPassword)
