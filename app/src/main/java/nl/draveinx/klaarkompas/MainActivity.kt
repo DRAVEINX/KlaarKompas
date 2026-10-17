@@ -17,6 +17,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
@@ -136,6 +137,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -1268,7 +1270,334 @@ private fun SettingSwitchCard(
                 Text(title, color = Ink, fontWeight = FontWeight.SemiBold)
                 Text(description, color = Muted, fontSize = 13.sp)
             }
-            Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.semantics { contentDescription = title })
+            Switch(checked = checked, onCheckedChange = onCheckedChange, m
+@Composable
+private fun DashboardScreen(
+    guides: List<Guide>,
+    favorites: Set<String>,
+    progress: Map<String, Int>,
+    completed: Set<String>,
+    recentGuideIds: List<String>,
+    tasks: List<PlannerTask>,
+    largeText: Boolean,
+    onOpen: (String) -> Unit,
+    onToggleFavorite: (String) -> Unit,
+    onNavigate: (Destination) -> Unit
+) {
+    val today = LocalDate.now().toString()
+    val todayTasks = tasks.filter { it.date == today }
+    val recentGuides = recentGuideIds.mapNotNull { id -> guides.firstOrNull { it.id == id } }
+    val favoriteGuides = guides.filter { it.id in favorites }.take(4)
+    val inProgress = guides.filter { it.id in progress.keys && it.id !in completed }.take(3)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Text("Jouw KlaarKompas", color = Ink, fontSize = if (largeText) 30.sp else 26.sp, fontWeight = FontWeight.Bold)
+            Text("Goed dat je er bent. Wat wil je vandaag doen?", color = Muted, fontSize = if (largeText) 18.sp else 14.sp)
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                border = BorderStroke(1.dp, Border)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Mint), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.Home, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("Een stap tegelijk", color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                            Text("Je gidsen en planning staan hier bij elkaar.", color = Muted, fontSize = 13.sp)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        Button(onClick = { onNavigate(Destination.Explore) }, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Outlined.Explore, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Ontdekken")
+                        }
+                        OutlinedButton(onClick = { onNavigate(Destination.Planner) }, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Outlined.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Dagplanner")
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = Teal, modifier = Modifier.size(26.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Vandaag", color = Ink, fontWeight = FontWeight.Bold)
+                        Text(
+                            when (todayTasks.count { it.completed }) {
+                                0 -> "\${todayTasks.size} geplande \${if (todayTasks.size == 1) "taak" else "taken"}"
+                                else -> "\${todayTasks.count { it.completed }} van \${todayTasks.size} taken afgerond"
+                            },
+                            color = Muted,
+                            fontSize = 13.sp
+                        )
+                    }
+                    TextButton(onClick = { onNavigate(Destination.Planner) }) { Text("Openen") }
+                }
+            }
+        }
+        if (inProgress.isNotEmpty()) {
+            item { SectionHeading("Ga verder", "Je voortgang is op dit apparaat bewaard.") }
+            items(inProgress, key = { "dash-progress-\${it.id}" }) { guide ->
+                GuideCard(guide, guide.id in favorites, progress[guide.id], guide.id in completed, largeText, { onOpen(guide.id) }, { onToggleFavorite(guide.id) })
+            }
+        }
+        if (recentGuides.isNotEmpty()) {
+            item { SectionHeading("Recent geopend", "Pak een gids er snel weer bij.") }
+            items(recentGuides.take(4), key = { "recent-\${it.id}" }) { guide ->
+                GuideCard(guide, guide.id in favorites, progress[guide.id], guide.id in completed, largeText, { onOpen(guide.id) }, { onToggleFavorite(guide.id) })
+            }
+        }
+        if (favoriteGuides.isNotEmpty()) {
+            item { SectionHeading("Jouw favorieten", "Gidsen die je vaker gebruikt.") }
+            items(favoriteGuides, key = { "dash-fav-\${it.id}" }) { guide ->
+                GuideCard(guide, true, progress[guide.id], guide.id in completed, largeText, { onOpen(guide.id) }, { onToggleFavorite(guide.id) })
+            }
+        }
+        if (recentGuides.isEmpty() && favoriteGuides.isEmpty() && inProgress.isEmpty()) {
+            item {
+                EmptyState("Je startscherm vult zich vanzelf", "Open een handleiding of bewaar een favoriet. Je vindt die daarna hier terug.", Icons.Outlined.Home)
+            }
+        }
+        item { Spacer(Modifier.height(8.dp)) }
+    }
+}
+
+@Composable
+private fun PlannerScreen(
+    tasks: List<PlannerTask>,
+    largeText: Boolean,
+    onSaveTask: (PlannerTask) -> Unit,
+    onDeleteTask: (PlannerTask) -> Unit,
+    onToggleTask: (PlannerTask, Boolean) -> Unit,
+    onSpeak: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var newTitle by rememberSaveable { mutableStateOf("") }
+    var newTime by rememberSaveable { mutableStateOf("") }
+    var addReminder by rememberSaveable { mutableStateOf(false) }
+    var pendingReminderTask by remember { mutableStateOf<PlannerTask?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val task = pendingReminderTask
+        if (task != null) {
+            if (granted) onSaveTask(task)
+            else {
+                onSaveTask(task.copy(reminderEnabled = false))
+                Toast.makeText(context, "De taak is opgeslagen zonder melding. Je kunt meldingen later in Android inschakelen.", Toast.LENGTH_LONG).show()
+            }
+            pendingReminderTask = null
+        }
+    }
+    val dayTasks = tasks.filter { it.date == selectedDate }.sortedWith(compareBy<PlannerTask> { it.time.isBlank() }.thenBy { it.time }.thenBy { it.title })
+
+    fun submitTask() {
+        if (newTitle.isBlank()) {
+            Toast.makeText(context, "Vul eerst een taaknaam in.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val time = newTime.trim()
+        if (time.isNotBlank() && runCatching { LocalTime.parse(time) }.isFailure) {
+            Toast.makeText(context, "Gebruik een tijd in de vorm 09:30.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (addReminder && time.isBlank()) {
+            Toast.makeText(context, "Vul een tijd in om een herinnering te plannen.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val task = PlannerTask(
+            id = UUID.randomUUID().toString(),
+            title = newTitle.trim().take(160),
+            date = selectedDate,
+            time = time,
+            completed = false,
+            reminderEnabled = addReminder
+        )
+        newTitle = ""
+        if (task.reminderEnabled && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingReminderTask = task
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onSaveTask(task)
+        }
+    }
+
+    Column(Modifier.fillMaxSize().imePadding().padding(horizontal = 18.dp, vertical = 12.dp)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Text("Mijn dagplanner", color = Ink, fontSize = if (largeText) 29.sp else 25.sp, fontWeight = FontWeight.Bold)
+                Text("Plan je taken, vink af wat klaar is en stel optioneel een melding in.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
+            }
+            item {
+                val today = LocalDate.now()
+                val chosenDate = runCatching { LocalDate.parse(selectedDate) }.getOrDefault(today)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = selectedDate == today.toString(), onClick = { selectedDate = today.toString() }, label = { Text("Vandaag") })
+                    FilterChip(selected = selectedDate == today.plusDays(1).toString(), onClick = { selectedDate = today.plusDays(1).toString() }, label = { Text("Morgen") })
+                    Spacer(Modifier.weight(1f))
+                    OutlinedButton(onClick = {
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, day -> selectedDate = LocalDate.of(year, month + 1, day).toString() },
+                            chosenDate.year,
+                            chosenDate.monthValue - 1,
+                            chosenDate.dayOfMonth
+                        ).show()
+                    }) { Text(chosenDate.toString()) }
+                }
+            }
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Border)) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Taak toevoegen", color = Ink, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        OutlinedTextField(
+                            value = newTitle,
+                            onValueChange = { newTitle = it.take(160) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Wat wil je doen?") },
+                            placeholder = { Text("Bijv. boodschappen doen") },
+                            singleLine = true
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = newTime,
+                                onValueChange = { newTime = it.filter { c -> c.isDigit() || c == ':' }.take(5) },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Tijd (optioneel)") },
+                                placeholder = { Text("09:30") },
+                                singleLine = true
+                            )
+                            Button(onClick = { onSpeak("Welke taak wil je plannen?") }) {
+                                Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = "Lees taakplanning voor")
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Outlined.Notifications, contentDescription = null, tint = Teal)
+                            Column(Modifier.weight(1f)) {
+                                Text("Herinnering instellen", color = Ink, fontWeight = FontWeight.Medium)
+                                Text("Een melding op de gekozen datum en tijd.", color = Muted, fontSize = 12.sp)
+                            }
+                            Switch(checked = addReminder, onCheckedChange = { addReminder = it })
+                        }
+                        Button(onClick = { submitTask() }, modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                            Icon(Icons.Outlined.Add, contentDescription = null)
+                            Spacer(Modifier.width(7.dp))
+                            Text("Taak toevoegen")
+                        }
+                    }
+                }
+            }
+            item { SectionHeading("Taken voor deze dag", "\${dayTasks.count { it.completed }} van \${dayTasks.size} afgerond") }
+            if (dayTasks.isEmpty()) {
+                item { EmptyState("Nog geen taken gepland", "Voeg hierboven een taak toe. De planning blijft lokaal op dit apparaat.", Icons.Outlined.CalendarMonth) }
+            } else {
+                items(dayTasks, key = { "planner-\${it.id}" }) { task ->
+                    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Border)) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Checkbox(checked = task.completed, onCheckedChange = { onToggleTask(task, it) })
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(task.title, color = Ink, fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 18.sp else 15.sp)
+                                val subtitle = buildString {
+                                    if (task.time.isNotBlank()) append(task.time)
+                                    if (task.reminderEnabled) {
+                                        if (isNotEmpty()) append(" • ")
+                                        append("herinnering aan")
+                                    }
+                                    if (isEmpty()) append("Geen tijd ingesteld")
+                                }
+                                Text(subtitle, color = if (task.reminderEnabled) Teal else Muted, fontSize = 12.sp)
+                            }
+                            IconButton(onClick = { onDeleteTask(task) }, modifier = Modifier.semantics { contentDescription = "Verwijder taak \${task.title}" }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = null, tint = Muted)
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Text("Herinneringen gebruiken Android-meldingen. Zet meldingen voor KlaarKompas aan in de Android-instellingen als je geen melding ontvangt.", color = Muted, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoreScreen(largeText: Boolean, onNavigate: (Destination) -> Unit) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Meer functies", color = Ink, fontSize = if (largeText) 29.sp else 25.sp, fontWeight = FontWeight.Bold)
+        Text("Open extra hulpmiddelen en instellingen.", color = Muted)
+        MoreNavigationCard("Samen-doen", "Maak samen een moeilijke taak eenvoudiger.", Icons.Outlined.Lightbulb) { onNavigate(Destination.Together) }
+        MoreNavigationCard("Gids maken", "Schrijf een eigen handleiding, spreek tekst in of voeg foto's toe.", Icons.Outlined.Add) { onNavigate(Destination.Create) }
+        MoreNavigationCard("Instellingen en back-up", "Pas toegankelijkheid aan en bewaar je gegevens.", Icons.Outlined.Settings) { onNavigate(Destination.Settings) }
+    }
+}
+
+@Composable
+private fun MoreNavigationCard(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(1.dp, Border),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(45.dp).clip(RoundedCornerShape(13.dp)).background(Mint), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = Teal)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, color = Ink, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = Muted, fontSize = 13.sp)
+            }
+            Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null, tint = Teal)
+        }
+    }
+}
+
+@Composable
+private fun GuidePhoto(reference: String?, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = reference) {
+        value = withContext(Dispatchers.IO) {
+            runCatching { guideImageFile(context, reference)?.let { BitmapFactory.decodeFile(it.absolutePath) } }.getOrNull()
+        }
+    }
+    if (bitmap != null) {
+        Image(bitmap!!.asImageBitmap(), contentDescription = "Foto bij deze handleiding", modifier = modifier, contentScale = ContentScale.Crop)
+    } else {
+        Box(modifier.background(PanelElevated), contentAlignment = Alignment.Center) {
+            Icon(Icons.Outlined.Explore, contentDescription = "Geen foto beschikbaar", tint = Teal)
+        }
+    }
+}
+
+odifier = Modifier.semantics { contentDescription = title })
         }
     }
 }
