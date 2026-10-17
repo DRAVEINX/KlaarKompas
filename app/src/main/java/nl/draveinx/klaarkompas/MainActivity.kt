@@ -1292,6 +1292,12 @@ private fun DashboardScreen(
 ) {
     val today = LocalDate.now().toString()
     val todayTasks = tasks.filter { it.date == today }
+    val completedToday = todayTasks.count { it.completed }
+    val todaySummary = when {
+        todayTasks.isEmpty() -> "Nog geen taken gepland"
+        completedToday == todayTasks.size -> "\$completedToday van \${todayTasks.size} taken afgerond"
+        else -> "\${todayTasks.size} geplande taken"
+    }
     val recentGuides = recentGuideIds.mapNotNull { id -> guides.firstOrNull { it.id == id } }
     val favoriteGuides = guides.filter { it.id in favorites }.take(4)
     val inProgress = guides.filter { it.id in progress.keys && it.id !in completed }.take(3)
@@ -1343,14 +1349,7 @@ private fun DashboardScreen(
                     Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = Teal, modifier = Modifier.size(26.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Vandaag", color = Ink, fontWeight = FontWeight.Bold)
-                        Text(
-                            when (todayTasks.count { it.completed }) {
-                                0 -> "\${todayTasks.size} geplande \${if (todayTasks.size == 1) "taak" else "taken"}"
-                                else -> "\${todayTasks.count { it.completed }} van \${todayTasks.size} taken afgerond"
-                            },
-                            color = Muted,
-                            fontSize = 13.sp
-                        )
+                        Text(todaySummary, color = Muted, fontSize = 13.sp)
                     }
                     TextButton(onClick = { onNavigate(Destination.Planner) }) { Text("Openen") }
                 }
