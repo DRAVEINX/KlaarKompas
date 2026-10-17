@@ -2,7 +2,9 @@
 
 **Kleine stappen. Echte vooruitgang.**
 
-KlaarKompas is een offline-first Android starter app with an independent phone variant and tablet variant. It helps a user find a practical guide, follow one step at a time, listen to instructions, save favourites and resume progress.
+**Source version: 0.2.0**
+
+KlaarKompas is een offline-first Android starter app with an independent phone variant and tablet variant. It helps people find a practical guide, follow one step at a time, listen to instructions, save favourites, create their own guides and resume progress.
 
 > **Project status:** first MVP source package. The source and CI workflow are prepared; no build has been run in this environment because Android SDK/Gradle dependencies are not installed and outbound downloads are unavailable. The first GitHub Actions run must pass before the APK/AAB artifacts can be called verified.
 
@@ -10,7 +12,9 @@ KlaarKompas is een offline-first Android starter app with an independent phone v
 
 - 33 bundled Dutch-language guides across five subject categories, available offline.
 - Search across guide titles, summaries, categories and tags.
-- Guided one-step-at-a-time reading with progress, previous/next, completion and an “I’m stuck” helper.
+- Guided one-step-at-a-time reading with progress, previous/next, completion and an “I’m stuck” helper with three alternatives.
+- Create up to 20-step personal guides with a title, category and estimated time; personal guides are saved locally and included in search and “Mijn gidsen”.
+- URL-safe Base64 persistence for personal guides protects punctuation and multiline instructions from corrupting saved records.
 - Text-to-speech for a guide step, TalkBack-friendly labelled controls, and a larger-text setting.
 - Local favourites and progress storage through Android DataStore; no login or network permission is requested.
 - Adaptive layouts: compact bottom navigation on phones and a navigation sidebar / wider guided layout on larger screens.
@@ -53,7 +57,7 @@ Release outputs produced by the current workflow are **not signed for Google Pla
 
 ## GitHub Actions
 
-The workflow in `.github/workflows/android.yml` first runs `python tools/validate_project.py`, a dependency-free preflight that checks XML, the phone/tablet variants, guide-library IDs, privacy defaults, Gradle pinning and expected CI tasks. It then runs the Android unit tests and lint tasks and builds both flavors. After pushing this folder to a new, separate repository, open **Actions → KlaarKompas Android CI**. Download the artifact named `klaarkompas-android-<run number>` from a successful run.
+The workflow in `.github/workflows/android.yml` first runs `python tools/validate_project.py`, a dependency-free preflight that checks XML, the phone/tablet variants, guide-library IDs, personal-guide storage, privacy defaults, Gradle pinning and expected CI tasks. It then runs the Android unit tests and lint tasks and builds both flavors. Open **Actions → KlaarKompas Android CI**. A successful run provides the phone/tablet build artifacts; if no run appears, check the Actions tab and the workflow file under `.github/workflows/android.yml`. Download the artifact named `klaarkompas-android-<run number>` from a successful run.
 
 ## App identifiers
 
