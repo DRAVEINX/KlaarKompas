@@ -102,7 +102,16 @@ jobs:
           done
           for aab in app/build/outputs/bundle/phoneRelease/*.aab app/build/outputs/bundle/tabletRelease/*.aab; do
             test -f "$aab"
-            jarsigner -verify "$aab"
+            VERIFY_OUTPUT="$(jarsigner -verify "$aab" 2>&1)" || {
+              printf '%s\n' "$VERIFY_OUTPUT"
+              echo "::error::AAB signature verification command failed: $aab"
+              exit 1
+            }
+            printf '%s\n' "$VERIFY_OUTPUT"
+            if ! printf '%s\n' "$VERIFY_OUTPUT" | grep -Fq "jar verified."; then
+              echo "::error::AAB is not confirmed as signed: $aab"
+              exit 1
+            fi
           done
 
       - name: Write release metadata and SHA-256 checksums
