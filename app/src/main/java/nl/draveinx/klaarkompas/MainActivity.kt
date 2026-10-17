@@ -1182,46 +1182,93 @@ private fun CreateGuideScreen(
 }
 
 @Composable
-private fun SettingsScreen(largeText: Boolean, onLargeTextChange: (Boolean) -> Unit) {
+private fun SettingsScreen(
+    largeText: Boolean,
+    highContrast: Boolean,
+    simpleLanguage: Boolean,
+    autoRead: Boolean,
+    onLargeTextChange: (Boolean) -> Unit,
+    onHighContrastChange: (Boolean) -> Unit,
+    onSimpleLanguageChange: (Boolean) -> Unit,
+    onAutoReadChange: (Boolean) -> Unit,
+    onBackup: () -> Unit,
+    onRestore: () -> Unit
+) {
     val context = LocalContext.current
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("Instellingen", fontSize = if (largeText) 28.sp else 24.sp, fontWeight = FontWeight.Bold, color = Ink)
-        Text("Maak KlaarKompas passend bij jouw manier van werken.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
+        Text("Pas tekst, uitleg, geluid en je persoonlijke gegevens aan.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
+        SettingSwitchCard("Grotere tekst", "Ruimere tekst in handleidingen en overzichten.", largeText, onLargeTextChange)
+        SettingSwitchCard("Hoog contrast", "Lichtere accenten en opvallendere randen voor betere zichtbaarheid.", highContrast, onHighContrastChange)
+        SettingSwitchCard("Eenvoudige uitleg", "Kies kortere, duidelijkere teksten bij hulp en begeleiding.", simpleLanguage, onSimpleLanguageChange)
+        SettingSwitchCard("Stappen automatisch voorlezen", "Lees iedere nieuwe stap hardop zodra je die opent.", autoRead, onAutoReadChange)
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Grotere tekst", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
-                    Text("Gebruik ruimere tekst in de handleidingen en overzichten.", color = Muted, fontSize = if (largeText) 16.sp else 13.sp)
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Outlined.Backup, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Back-up en terugzetten", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
+                        Text("Bewaar gidsen, favorieten, dagplanning, voortgang en lokale foto's in één ZIP-bestand. Gebruik hetzelfde bestand om gegevens op een ander toestel terug te zetten.", color = Muted, fontSize = if (largeText) 16.sp else 13.sp)
+                    }
                 }
-                Switch(checked = largeText, onCheckedChange = onLargeTextChange, modifier = Modifier.semantics { contentDescription = "Grotere tekst inschakelen" })
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = onBackup, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.Backup, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Back-up maken")
+                    }
+                    OutlinedButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.BookmarkBorder, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Terugzetten")
+                    }
+                }
+                Text("Terugzetten vervangt de huidige gegevens door de back-up. Bewaar eerst een back-up van de huidige gegevens als je ze nog nodig hebt.", color = Gold, fontSize = 12.sp)
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Offline en privacy", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
-                Text("Gidsen, favorieten, voortgang en eigen gidsen worden lokaal bewaard. Deze versie heeft geen account of eigen synchronisatie. Bij voorlezen gebruikt Android de tekst-naar-spraakdienst die op jouw toestel is ingesteld.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
+                Text("Gidsen, favorieten, voortgang, foto's en je dagplanner worden lokaal bewaard. Deze versie heeft geen account, eigen cloud of online synchronisatie. Spraakherkenning gebruikt de Android-spraakdienst van je toestel. Herinneringen zijn lokale meldingen.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
                 TextButton(
                     onClick = {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PrivacyPolicyUrl))
-                        if (intent.resolveActivity(context.packageManager) != null) {
-                            context.startActivity(intent)
-                        }
+                        if (intent.resolveActivity(context.packageManager) != null) context.startActivity(intent)
                     },
                     modifier = Modifier.semantics { contentDescription = "Lees de privacyverklaring" }
-                ) {
-                    Text("Lees de privacyverklaring", fontSize = if (largeText) 16.sp else 14.sp)
-                }
+                ) { Text("Lees de privacyverklaring", fontSize = if (largeText) 16.sp else 14.sp) }
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Mint), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Kleine stappen. Echte vooruitgang.", fontWeight = FontWeight.Bold, color = Ink, fontSize = if (largeText) 19.sp else 16.sp)
-                Text("KlaarKompas is een startversie. Controleer belangrijke veiligheids-, juridische of financiële informatie altijd bij een passende, betrouwbare bron.", color = Ink, fontSize = if (largeText) 16.sp else 13.sp)
+                Text("KlaarKompas werkt offline. Controleer belangrijke veiligheids-, juridische of financiële informatie altijd bij een passende, betrouwbare bron.", color = Ink, fontSize = if (largeText) 16.sp else 13.sp)
             }
+        }
+    }
+}
+
+@Composable
+private fun SettingSwitchCard(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Border)) {
+        Row(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, color = Ink, fontWeight = FontWeight.SemiBold)
+                Text(description, color = Muted, fontSize = 13.sp)
+            }
+            Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.semantics { contentDescription = title })
         }
     }
 }
