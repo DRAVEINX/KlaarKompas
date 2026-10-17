@@ -190,7 +190,8 @@ private enum class Destination(val label: String, val icon: ImageVector) {
     Together("Samen-doen", Icons.Outlined.Lightbulb),
     Create("Gids maken", Icons.Outlined.Add),
     More("Meer", Icons.AutoMirrored.Outlined.MenuBook),
-    Settings("Instellingen", Icons.Outlined.Settings)
+    Settings("Instellingen", Icons.Outlined.Settings),
+    Reflection("Mijn gevoel", Icons.Outlined.Edit)
 }
 
 @Composable
@@ -231,6 +232,7 @@ private fun KlaarKompasApp() {
     val autoReadSteps = preferences[AutoReadKey] ?: false
     val customGuides = remember(preferences[CustomGuidesKey]) { CustomGuideCodec.decode(preferences[CustomGuidesKey]) }
     val plannerTasks = remember(preferences[PlannerKey]) { PlannerTaskCodec.decode(preferences[PlannerKey]) }
+    val moodDiaryEntries = remember(preferences[MoodDiaryKey]) { MoodDiaryCodec.decode(preferences[MoodDiaryKey]) }
     val recentGuideIds = remember(preferences[RecentGuidesKey]) {
         preferences[RecentGuidesKey].orEmpty().split("|").filter { it.isNotBlank() }.distinct().take(8)
     }
@@ -494,6 +496,19 @@ private fun KlaarKompasApp() {
                                     largeText = largeText,
                                     onNavigate = { destination = it }
                                 )
+                                Destination.Reflection -> MoodDiaryScreen(
+                                    entries = moodDiaryEntries,
+                                    largeText = largeText,
+                                    onSave = { entry ->
+                                        scope.launch {
+                                            context.dataStore.edit { values ->
+                                                val current = MoodDiaryCodec.decode(values[MoodDiaryKey])
+                                                values[MoodDiaryKey] = MoodDiaryCodec.encode(current + entry)
+                                            }
+                                        }
+                                    },
+                                    onReadAloud = speechController::speak
+                                )
                                 Destination.Settings -> SettingsScreen(
                                     largeText = largeText,
                                     highContrast = highContrast,
@@ -601,7 +616,7 @@ private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Uni
 @Composable
 private fun BottomNavigation(selected: Destination, onSelect: (Destination) -> Unit) {
     val phoneItems = listOf(Destination.Home, Destination.Explore, Destination.Saved, Destination.Planner, Destination.More)
-    val activeItem = if (selected == Destination.Together || selected == Destination.Create || selected == Destination.Settings) Destination.More else selected
+    val activeItem = if (selected == Destination.Together || selected == Destination.Create || selected == Destination.Settings || selected == Destination.Reflection) Destination.More else selected
     NavigationBar(containerColor = Panel, windowInsets = WindowInsets.navigationBars) {
         phoneItems.forEach { item ->
             NavigationBarItem(
@@ -1559,6 +1574,7 @@ private fun MoreScreen(largeText: Boolean, onNavigate: (Destination) -> Unit) {
         Text("Meer functies", color = Ink, fontSize = if (largeText) 29.sp else 25.sp, fontWeight = FontWeight.Bold)
         Text("Open extra hulpmiddelen en instellingen.", color = Muted)
         MoreNavigationCard("Samen-doen", "Maak samen een moeilijke taak eenvoudiger.", Icons.Outlined.Lightbulb) { onNavigate(Destination.Together) }
+        MoreNavigationCard("Mijn gevoel", "Bewaar je stemming, gedachten en een eigen tekening op dit toestel.", Icons.Outlined.Edit) { onNavigate(Destination.Reflection) }
         MoreNavigationCard("Gids maken", "Schrijf een eigen handleiding, spreek tekst in of voeg foto's toe.", Icons.Outlined.Add) { onNavigate(Destination.Create) }
         MoreNavigationCard("Instellingen en back-up", "Pas toegankelijkheid aan en bewaar je gegevens.", Icons.Outlined.Settings) { onNavigate(Destination.Settings) }
     }
