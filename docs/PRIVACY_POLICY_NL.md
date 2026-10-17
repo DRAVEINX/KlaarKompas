@@ -7,7 +7,10 @@ Deze privacyverklaring geldt voor KlaarKompas Telefoon (pakket-ID nl.draveinx.kl
 
 ## Wie is verantwoordelijk?
 
-KlaarKompas wordt aangeboden door de ontwikkelaar die bij de betreffende Google Play-vermelding staat vermeld. Voor privacyvragen, verzoeken of klachten kun je het ontwikkelaarscontactadres gebruiken dat op die Google Play-pagina wordt vermeld. Vul vóór openbare publicatie een bereikbaar contactadres in Play Console in en controleer dat dit contact klopt.
+**Ontwikkelaarsnaam:** DRAVEINX  
+**Privacy- en ondersteuningscontact:** draveinx@gmail.com
+
+KlaarKompas wordt aangeboden door DRAVEINX. Voor privacyvragen, verzoeken of klachten kun je contact opnemen via [draveinx@gmail.com](mailto:draveinx@gmail.com). Hetzelfde adres moet als contactadres bij beide Google Play-vermeldingen worden ingevuld. Controleer vóór publicatie dat deze mailbox actief is en dat berichten van gebruikers kunnen worden ontvangen.
 
 ## Wat doet de app?
 
