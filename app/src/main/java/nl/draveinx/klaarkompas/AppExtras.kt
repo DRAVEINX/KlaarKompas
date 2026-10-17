@@ -50,6 +50,7 @@ internal val RecentGuidesKey = stringPreferencesKey("recent_guides_v1")
 internal val HighContrastKey = booleanPreferencesKey("high_contrast")
 internal val SimpleLanguageKey = booleanPreferencesKey("simple_language")
 internal val AutoReadKey = booleanPreferencesKey("auto_read_steps")
+internal val MoodDiaryKey = stringPreferencesKey("mood_diary_v1")
 
 /** A locally stored daily planner item. Date uses ISO-8601; reminder time is HH:mm. */
 data class PlannerTask(
@@ -256,7 +257,7 @@ object KlaarKompasBackup {
     private val knownKeys = setOf(
         FavoritesKey.name, CompletedKey.name, ProgressKey.name, LargeTextKey.name,
         CustomGuidesKey.name, PlannerKey.name, RecentGuidesKey.name, HighContrastKey.name,
-        SimpleLanguageKey.name, AutoReadKey.name
+        SimpleLanguageKey.name, AutoReadKey.name, MoodDiaryKey.name
     )
 
     fun write(context: Context, preferences: Preferences, destination: Uri) {
@@ -349,6 +350,7 @@ object KlaarKompasBackup {
                 values.remove(HighContrastKey)
                 values.remove(SimpleLanguageKey)
                 values.remove(AutoReadKey)
+                values.remove(MoodDiaryKey)
 
                 val iterator = serializedPreferences.keys()
                 while (iterator.hasNext()) {
@@ -367,6 +369,7 @@ object KlaarKompasBackup {
                         HighContrastKey.name -> values[HighContrastKey] = item.getBoolean("value")
                         SimpleLanguageKey.name -> values[SimpleLanguageKey] = item.getBoolean("value")
                         AutoReadKey.name -> values[AutoReadKey] = item.getBoolean("value")
+                        MoodDiaryKey.name -> values[MoodDiaryKey] = item.getString("value")
                     }
                     @Suppress("UNUSED_VARIABLE")
                     val validatedType = type
@@ -386,7 +389,7 @@ object KlaarKompasBackup {
                     require(item.getString("type") == "stringSet")
                     item.getJSONArray("value").toStringList().forEach { require(it.length <= 256) }
                 }
-                ProgressKey.name, CustomGuidesKey.name, PlannerKey.name, RecentGuidesKey.name -> {
+                ProgressKey.name, CustomGuidesKey.name, PlannerKey.name, RecentGuidesKey.name, MoodDiaryKey.name -> {
                     require(item.getString("type") == "string")
                     require(item.getString("value").length <= 5_000_000)
                 }
