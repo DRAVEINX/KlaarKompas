@@ -1779,7 +1779,7 @@ private fun GuidePlayer(
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("1. Maak het kleiner", color = Teal, fontWeight = FontWeight.Bold)
                             Text(if (simpleLanguage) "Doe alleen het eerste kleine stukje." else "Splits deze stap op in één kleine handeling. Controleer alleen dat ene onderdeel voordat je verdergaat.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
-                            Text("2. Vraag om hulp", color = Teal, fontWeight = FontWeight.Bold)
+                            Text(if (simpleLanguage) "2. Vraag om hulp" else "2. Vraag gericht om hulp", color = Teal, fontWeight = FontWeight.Bold)
                             Text(if (simpleLanguage) "Vertel wat je probeert te doen en waar je vastloopt. Deel nooit wachtwoorden of herstelcodes." else "Vertel wat je wilde doen, wat er gebeurde en welke foutmelding of vraag je ziet. Deel geen wachtwoorden of herstelcodes.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
                             Text("3. Neem een pauze", color = Teal, fontWeight = FontWeight.Bold)
                             Text(if (simpleLanguage) "Stop even als je boos of onzeker wordt. Probeer het later opnieuw of vraag iemand om mee te kijken." else "Als je gefrustreerd raakt of iets onveilig voelt, stop dan. Bewaar waar je bent gebleven en probeer het later opnieuw of vraag iemand die je vertrouwt.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
