@@ -1,11 +1,13 @@
 package nl.draveinx.klaarkompas
 
+import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -201,6 +203,12 @@ class PlannerReminderReceiver : BroadcastReceiver() {
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply { description = "Herinneringen voor persoonlijke taken" }
             )
+        }
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
         }
         val title = intent.getStringExtra("task_title").orEmpty().ifBlank { "Je geplande taak" }
         val notification = NotificationCompat.Builder(context, REMINDER_CHANNEL_ID)
