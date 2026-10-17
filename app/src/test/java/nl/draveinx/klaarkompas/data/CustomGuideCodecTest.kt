@@ -27,6 +27,7 @@ class CustomGuideCodecTest {
         assertEquals(original.category, restored.category)
         assertEquals(original.minutes, restored.minutes)
         assertEquals(original.steps, restored.steps)
+        assertEquals(original.coverImageUri, restored.coverImageUri)
     }
 
     @Test fun emptyAndCorruptRecordsAreIgnored() {
@@ -49,7 +50,7 @@ class CustomGuideCodecTest {
 
     @Test fun legacyCustomGuideRecordWithoutPhotosStillDecodes() {
         // Old six-field records and three-part steps remain readable after the photo fields were added.
-        val legacy = "custom-legacy|TGVnYWN5|T3VkZSBnaWRz|VGh1aXM|5|U3RhcA.QmVnaW4.~null~"
+        val legacy = "custom-legacy|TGVnYWN5|T3VkZSBnaWRz|VGh1aXM|5|U3RhcA.QmVnaW4.Zm51bGwt"
         val decoded = CustomGuideCodec.decode(legacy).single()
         assertEquals("Legacy", decoded.title)
         assertNull(decoded.coverImageUri)
