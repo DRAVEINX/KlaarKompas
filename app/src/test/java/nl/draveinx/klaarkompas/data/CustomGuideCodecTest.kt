@@ -18,7 +18,9 @@ class CustomGuideCodecTest {
                 GuideStep("Stap 1: begin", "Doe dit, en daarna dat.\nRustig aan.", "Tip: niets delen | bewaren", "app-image:step-one.png"),
                 GuideStep("Laatste stap", "Controleer het resultaat", null)
             ),
-            coverImageUri = "app-image:cover-home.jpg"
+            coverImageUri = "app-image:cover-home.jpg",
+            safetyNote = "Let op: zorg voor voldoende licht."
+
         )
         val restored = CustomGuideCodec.decode(CustomGuideCodec.encode(listOf(original))).single()
         assertEquals(original.id, restored.id)
@@ -28,6 +30,7 @@ class CustomGuideCodecTest {
         assertEquals(original.minutes, restored.minutes)
         assertEquals(original.steps, restored.steps)
         assertEquals(original.coverImageUri, restored.coverImageUri)
+        assertEquals(original.safetyNote, restored.safetyNote)
     }
 
     @Test fun emptyAndCorruptRecordsAreIgnored() {
