@@ -76,7 +76,7 @@ object MoodDiaryCodec {
                 require(values[3].length <= MAX_NOTE_LENGTH && values[4].length <= MAX_DRAWING_LENGTH)
                 MoodDiaryEntry(values[0], values[1], values[2], values[3], values[4])
             }.getOrNull()
-        }.distinctBy { it.id }.takeLast(MAX_ENTRIES)
+        }.distinctBy { it.id }.toList().takeLast(MAX_ENTRIES)
     }
 
     const val MAX_ENTRIES = 100
