@@ -1,17 +1,28 @@
-# Upload KlaarKompas as a separate GitHub repository
+# KlaarKompas repository and Android CI
 
-Keep this project separate from MoodPress. Create an empty repository named `KlaarKompas` under the correct GitHub account. Do not initialise it with an additional README, licence or `.gitignore`, because those files are already included here.
+The standalone repository is `DRAVEINX/KlaarKompas`. Do not place this project inside MoodPress.
 
-After extracting the ZIP, open a terminal in the `KlaarKompas` folder and run:
+The source tree should include the app module, `.github/workflows/android.yml`, `tools/validate_project.py`, the Gradle configuration and the project documentation.
 
-```bash
-git init -b main
-git add .
-git commit -m "Initial KlaarKompas Android MVP"
-git remote add origin https://github.com/DRAVEINX/KlaarKompas.git
-git push -u origin main
+## Start a build
+
+1. Open [DRAVEINX/KlaarKompas on GitHub](https://github.com/DRAVEINX/KlaarKompas).
+2. Open **Actions** and select **KlaarKompas Android CI**.
+3. Select **Run workflow** on the main branch if no run started after the source update.
+4. Open the run and confirm the preflight, unit tests, lint, phone/tablet APK builds and phone/tablet AAB builds are successful.
+5. Download `klaarkompas-android-<run number>` from the run's **Artifacts** section.
+
+## Local build
+
+Install Android Studio, JDK 17 and Android SDK Platform 36 / Build Tools 36.0.0, then run from the project root:
+
+```powershell
+.\gradlew.bat testPhoneDebugUnitTest testTabletDebugUnitTest
+.\gradlew.bat assemblePhoneDebug assembleTabletDebug assemblePhoneRelease assembleTabletRelease bundlePhoneRelease bundleTabletRelease
 ```
 
-If your GitHub account uses a different owner or you choose a different repository name, replace the URL in the `git remote add` command with that repository's HTTPS URL. GitHub may ask you to authenticate in a browser.
+The first build needs network access for the official Gradle distribution and Android dependencies.
 
-After the push, open the repository's **Actions** tab and select **KlaarKompas Android CI**. Wait for the run to finish and verify that all test, lint and build steps pass. Then open the successful run and download its `klaarkompas-android-<run number>` artifact ZIP. It contains separate phone/tablet APKs and release AAB/APK outputs. The release outputs are unsigned and must not be uploaded to Google Play until a secure signing setup and on-device validation are complete.
+## Signing and Play Store
+
+The CI release APKs and AABs are unsigned. Do not upload them to Google Play until signing and Play App Signing have been set up securely. Never commit keystores, passwords or signing keys to the repository.
