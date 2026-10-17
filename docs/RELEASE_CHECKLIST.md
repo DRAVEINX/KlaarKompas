@@ -25,3 +25,13 @@
 - [ ] Privacy policy matches actual data behavior and SDKs.
 - [ ] Store data-safety form and target API requirements verified at publication time.
 - [ ] Test track, release notes and rollback plan prepared.
+
+## Added for 0.2.0 personal guides
+
+- [ ] Create a guide with one step and with several steps.
+- [ ] Create a guide with accents, punctuation and multiple lines; close and reopen the app and verify it is preserved.
+- [ ] Confirm personal guides appear in search, category filters and “Mijn gidsen”.
+- [ ] Confirm built-in guides cannot be overwritten by a personal guide ID.
+- [ ] Verify the 20-step limit and reject an empty title or empty step list.
+- [ ] Use the stuck-help options with TalkBack and larger text enabled.
+- [ ] Confirm GitHub Actions reports green for unit tests, lint, phone/tablet APKs and phone/tablet AABs before calling the build verified.
