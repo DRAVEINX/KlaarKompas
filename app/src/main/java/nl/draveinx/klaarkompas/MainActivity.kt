@@ -110,6 +110,7 @@ import java.util.UUID
 import nl.draveinx.klaarkompas.data.CustomGuideCodec
 import nl.draveinx.klaarkompas.data.Guide
 import nl.draveinx.klaarkompas.data.GuideStep
+import nl.draveinx.klaarkompas.data.GuideRepository
 
 private val Context.dataStore by preferencesDataStore(name = "klaarkompas_preferences")
 private val FavoritesKey = stringSetPreferencesKey("favorite_guides")
