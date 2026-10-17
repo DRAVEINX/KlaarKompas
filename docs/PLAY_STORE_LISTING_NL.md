@@ -74,7 +74,7 @@ KlaarKompas geeft algemene praktische aanwijzingen en vervangt geen deskundig ad
 - [ ] Controleer appnaam, korte beschrijving en volledige beschrijving op de actuele Play Console-limieten.
 - [ ] Voeg een passende vierkante app-icoon met hoge resolutie toe.
 - [ ] Maak echte screenshots van de telefoonversie én de tabletversie, met de huidige release.
-- [ ] Vul een bereikbaar ontwikkelaarscontactadres en een ondersteuningsmethode in.
+- [ ] Gebruik draveinx@gmail.com als ontwikkelaars-/privacycontactadres voor zowel de telefoon- als tabletvermelding en controleer dat de mailbox berichten ontvangt.
 - [ ] Voeg de publieke privacyverklaring toe nadat deze is bijgewerkt, openbaar toegankelijk is en zonder ingelogd GitHub-account is getest.
 - [ ] Vul de Data safety-formulieren afzonderlijk en waarheidsgetrouw in voor beide app-ID's. Beoordeel de verwerking door de gekozen Android-spraakdienst; ga niet automatisch uit van nul gegevensverwerking alleen omdat de app zelf geen netwerktoegang aanvraagt.
 - [ ] Voltooi inhoudsclassificatie, doelgroep, advertentiesverklaring en overige gevraagde formulieren.
