@@ -1,60 +1,82 @@
-# Google Play listing draft — Nederlands
+# Google Play-vermelding — KlaarKompas 0.3.0
 
-This copy is prepared for the current offline MVP only. It must be reviewed in Play Console before publication. Do not describe cloud sync, user accounts, AI answers, helper portals, ads or features not present in this version.
+Deze teksten horen bij de huidige Android-versie 0.3.0. Controleer in Play Console de titel- en beschrijvingslimieten en gebruik echte screenshots van iedere versie. Beschrijf geen cloudsynchronisatie, online accounts of portaalfuncties: die zijn niet in deze versie aanwezig.
 
-## Phone edition
+## Telefoonversie
 
-**App name:** KlaarKompas – telefoon
+**Appnaam:** KlaarKompas – telefoon
 
-**Short description (max 80 characters):**
-Praktische uitleg in kleine stappen, ook offline en met voorlezen.
+**Korte beschrijving:**  
+Praktische uitleg in kleine stappen, met spraak, foto's en planning.
 
-**Full description:**
-KlaarKompas helpt je op weg wanneer je niet goed weet waar je moet beginnen. Kies een praktische gids, volg de stappen in je eigen tempo en pak de draad later weer op.
+**Volledige beschrijving:**
 
-**Zo werkt het**
-- Zoek in een Nederlandstalige bibliotheek met praktische gidsen.
-- Bekijk gidsen per categorie en vind instructies met de zoekfunctie.
-- Volg één stap tegelijk en ga terug of verder wanneer dat nodig is.
-- Gebruik de hulpopties als je vastloopt.
-- Maak je eigen gids met maximaal 20 stappen.
-- Bewaar favorieten en hervat je voortgang later.
-- Laat een stap voorlezen met de tekst-naar-spraakfunctie.
-- Vergroot de tekst en gebruik TalkBack voor ondersteuning bij toegankelijkheid.
+KlaarKompas helpt je op weg wanneer je niet goed weet waar je moet beginnen. Kies een praktische handleiding, volg de stappen in je eigen tempo en pak de draad later weer op.
 
-**Offline en lokaal**
-De huidige versie werkt zonder account en is ontworpen voor gebruik zonder internetverbinding. Je favorieten, voortgang, tekstvoorkeur en zelfgemaakte gidsen worden lokaal op je toestel opgeslagen. Deze versie synchroniseert je gegevens niet met een andere telefoon of tablet.
+**Vind je weg**
+- Doorzoek Nederlandstalige praktische handleidingen en blader per categorie.
+- Volg één stap tegelijk en lees een vorige stap opnieuw wanneer je dat nodig hebt.
+- Gebruik de hulpopties wanneer je vastloopt.
+- Bewaar favoriete gidsen, bekijk recent geopende gidsen en hervat je voortgang.
+
+**Maak het persoonlijk**
+- Maak eigen handleidingen met maximaal 20 stappen.
+- Spreek titels, uitleg en stappen in met de beschikbare Android-spraakdienst.
+- Voeg een omslagfoto, foto's bij stappen, tips en waarschuwingen toe.
+- Deel bewust de tekst van een handleiding via het Android-deelmenu.
+
+**Plan je dag**
+- Voeg persoonlijke taken toe met datum en optionele tijd.
+- Vink taken af zodra ze klaar zijn.
+- Stel optionele lokale meldingen in voor geplande taken.
+- Bekijk geplande taken, favorieten en handleidingen om verder te gaan op je persoonlijke startscherm.
+
+**Pas de app aan jou aan**
+- Kies grotere tekst, hoog contrast en eenvoudigere hulpteksten.
+- Laat nieuwe stappen automatisch voorlezen of tik om een stap handmatig te laten voorlezen.
+- Gebruik Android-toegankelijkheidsfuncties zoals TalkBack.
+
+**Bewaar je gegevens**
+KlaarKompas bewaart favorieten, voortgang, je eigen handleidingen, foto's, instellingen en dagplanning standaard lokaal op je toestel. Je kunt hiervan een back-up maken en die later terugzetten. De back-up is een niet-versleuteld ZIP-bestand; bewaar dat bestand daarom veilig.
+
+De meeste handleidingen en plannerfuncties zijn offline te gebruiken. Spraakherkenning is afhankelijk van de Android-spraakdienst en de instellingen van je apparaat; die dienst kan audio of tekst op een eigen manier verwerken. Er is geen eigen KlaarKompas-account, cloudsync of online begeleidersportaal.
 
 KlaarKompas geeft algemene praktische aanwijzingen. Gebruik de app niet als vervanging voor deskundig advies bij medische, juridische, financiële, elektrische of andere risicovolle situaties.
 
-## Tablet edition
+## Tabletversie
 
-**App name:** KlaarKompas – tablet
+**Appnaam:** KlaarKompas – tablet
 
-**Short description (max 80 characters):**
-Praktische uitleg in kleine stappen, ook offline en met voorlezen.
+**Korte beschrijving:**  
+Praktische uitleg in kleine stappen, met spraak, foto's en planning.
 
-**Full description:**
-KlaarKompas voor tablet helpt je praktische taken stap voor stap uit te voeren. De bredere tabletindeling geeft meer ruimte om gidsen te zoeken, instructies te lezen en je voortgang te volgen.
+**Volledige beschrijving:**
 
-- Doorzoek Nederlandstalige praktische gidsen en blader per categorie.
-- Volg één stap tegelijk, bekijk eerdere stappen en hervat later.
-- Gebruik hulpopties wanneer je vastloopt.
-- Maak persoonlijke gidsen met maximaal 20 stappen.
-- Bewaar favorieten en lokale voortgang.
-- Laat instructies voorlezen.
-- Vergroot tekst en gebruik TalkBack.
+KlaarKompas voor tablet helpt je praktische taken stap voor stap uit te voeren. De bredere tabletindeling geeft meer ruimte om handleidingen te zoeken, instructies te lezen en je eigen voortgang te volgen.
 
-De huidige versie werkt zonder account en is ontworpen voor offline gebruik. Favorieten, voortgang, tekstvoorkeuren en eigen gidsen blijven lokaal op het apparaat. Automatische synchronisatie met een telefoon is in deze versie niet beschikbaar.
+**Met KlaarKompas kun je**
+- Nederlandstalige handleidingen doorzoeken en per categorie bekijken.
+- Een taak stap voor stap volgen en later verdergaan waar je gebleven was.
+- Favorieten, recente gidsen en voortgang bijhouden.
+- Eigen handleidingen maken met maximaal 20 stappen en tekst inspreken.
+- Omslagfoto's en foto's bij stappen toevoegen, met optionele tips en waarschuwingen.
+- Een dagelijkse takenlijst maken en optionele meldingen instellen.
+- Een handleidingstekst delen met een app die je zelf kiest.
+- Grotere tekst, hoog contrast, eenvoudigere hulp en automatisch voorlezen instellen.
+- Een back-up maken en persoonlijke gegevens later terugzetten.
+
+De app bewaart je gegevens standaard lokaal op het apparaat. Een zelfgemaakte back-up is een niet-versleuteld ZIP-bestand en moet daarom op een veilige plek worden bewaard. Spraakherkenning is afhankelijk van de Android-spraakdienst op je toestel. Deze versie bevat geen eigen online account, automatische synchronisatie tussen tablet en telefoon of online portaal.
 
 KlaarKompas geeft algemene praktische aanwijzingen en vervangt geen deskundig advies bij risicovolle situaties.
 
-## Checklist for the Play Console listing
+## Controlelijst voor Play Console
 
-- Upload a square high-resolution app icon that matches the app.
-- Capture real screenshots from the phone edition and tablet edition; do not use mock screens as if they were the app.
-- Confirm title, short description and full description fit Play Console limits.
-- Enter the developer contact email and support website/contact method.
-- Link the public privacy policy from `docs/PRIVACY_POLICY_NL.md` only after the page is public and has been checked in a signed-out browser.
-- Complete the content rating and Data safety form based on the exact release code and dependencies.
-- Review the declaration questions and current Play Console policies before submitting.
+- [ ] Controleer appnaam, korte beschrijving en volledige beschrijving op de actuele Play Console-limieten.
+- [ ] Voeg een passende vierkante app-icoon met hoge resolutie toe.
+- [ ] Maak echte screenshots van de telefoonversie én de tabletversie, met de huidige release.
+- [ ] Vul een bereikbaar ontwikkelaarscontactadres en een ondersteuningsmethode in.
+- [ ] Voeg de publieke privacyverklaring toe nadat deze is bijgewerkt, openbaar toegankelijk is en zonder ingelogd GitHub-account is getest.
+- [ ] Vul de Data safety-formulieren afzonderlijk en waarheidsgetrouw in voor beide app-ID's. Beoordeel de verwerking door de gekozen Android-spraakdienst; ga niet automatisch uit van nul gegevensverwerking alleen omdat de app zelf geen netwerktoegang aanvraagt.
+- [ ] Voltooi inhoudsclassificatie, doelgroep, advertentiesverklaring en overige gevraagde formulieren.
+- [ ] Controleer dat iedere AAB bij de juiste afzonderlijke appvermelding wordt geüpload.
+- [ ] Publiceer pas nadat de ondertekende release kandidaat op echte telefoon en tablet is getest.
