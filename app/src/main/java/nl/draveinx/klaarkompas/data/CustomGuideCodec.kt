@@ -27,9 +27,11 @@ object CustomGuideCodec {
                     listOf(
                         encodeText(step.title),
                         encodeText(step.instruction),
-                        encodeText(step.tip ?: NULL_SENTINEL)
+                        encodeText(step.tip ?: NULL_SENTINEL),
+                        encodeText(step.imageUri ?: NULL_SENTINEL)
                     ).joinToString(".")
-                }
+                },
+                encodeText(guide.coverImageUri ?: NULL_SENTINEL)
             )
             fields.joinToString("|")
         }
@@ -40,7 +42,7 @@ object CustomGuideCodec {
             if (line.isBlank()) return@guideLine null
             runCatching {
                 val fields = line.split('|')
-                require(fields.size == 6)
+                require(fields.size == 6 || fields.size == 7)
                 val id = fields[0]
                 require(id.startsWith(CUSTOM_PREFIX))
                 val title = decodeText(fields[1]).trim()
@@ -50,12 +52,18 @@ object CustomGuideCodec {
                 val minutes = fields[4].toInt().coerceIn(1, 600)
                 val steps = fields[5].split(',').mapNotNull stepPart@ { encodedStep ->
                     val parts = encodedStep.split('.')
-                    if (parts.size != 3) return@stepPart null
+                    if (parts.size !in 3..4) return@stepPart null
                     val stepTitle = decodeText(parts[0]).trim()
                     val instruction = decodeText(parts[1]).trim()
                     val decodedTip = decodeText(parts[2])
+                    val decodedImage = parts.getOrNull(3)?.let(::decodeText)
                     if (stepTitle.isBlank() || instruction.isBlank()) null
-                    else GuideStep(stepTitle, instruction, decodedTip.takeUnless { it == NULL_SENTINEL || it.isBlank() })
+                    else GuideStep(
+                        stepTitle,
+                        instruction,
+                        decodedTip.takeUnless { it == NULL_SENTINEL || it.isBlank() },
+                        decodedImage?.takeUnless { it == NULL_SENTINEL || it.isBlank() }
+                    )
                 }
                 require(title.isNotBlank() && steps.isNotEmpty())
                 Guide(
@@ -65,7 +73,9 @@ object CustomGuideCodec {
                     category = category,
                     minutes = minutes,
                     tags = listOf("mijn gids", category.lowercase()),
-                    steps = steps
+                    steps = steps,
+                    coverImageUri = fields.getOrNull(6)?.let(::decodeText)
+                        ?.takeUnless { it == NULL_SENTINEL || it.isBlank() }
                 )
             }.getOrNull()
         }.distinctBy { it.id }.toList()
