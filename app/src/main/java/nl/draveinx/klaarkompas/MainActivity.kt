@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -104,12 +106,17 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import java.util.Locale
+import java.util.UUID
+import nl.draveinx.klaarkompas.data.CustomGuideCodec
+import nl.draveinx.klaarkompas.data.Guide
+import nl.draveinx.klaarkompas.data.GuideStep
 
 private val Context.dataStore by preferencesDataStore(name = "klaarkompas_preferences")
 private val FavoritesKey = stringSetPreferencesKey("favorite_guides")
 private val CompletedKey = stringSetPreferencesKey("completed_guides")
 private val ProgressKey = stringPreferencesKey("guide_progress")
 private val LargeTextKey = booleanPreferencesKey("large_text")
+private val CustomGuidesKey = stringPreferencesKey("custom_guides_v1")
 
 private val Ink = Color(0xFF152438)
 private val Teal = Color(0xFF16756D)
@@ -128,6 +135,7 @@ class MainActivity : ComponentActivity() {
 private enum class Destination(val label: String, val icon: ImageVector) {
     Explore("Ontdekken", Icons.Outlined.Explore),
     Saved("Mijn gidsen", Icons.Outlined.BookmarkBorder),
+    Create("Gids maken", Icons.Outlined.Add),
     Settings("Instellingen", Icons.Outlined.Settings)
 }
 
@@ -162,13 +170,15 @@ private fun KlaarKompasApp() {
     val completed = preferences[CompletedKey] ?: emptySet()
     val progress = remember(preferences[ProgressKey]) { parseProgress(preferences[ProgressKey]) }
     val largeText = preferences[LargeTextKey] ?: false
+    val customGuides = remember(preferences[CustomGuidesKey]) { CustomGuideCodec.decode(preferences[CustomGuidesKey]) }
+    val guideLibrary = remember(customGuides) { GuideRepository.guides + customGuides }
 
     var destination by rememberSaveable { mutableStateOf(Destination.Explore) }
     var activeGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedCategory by rememberSaveable { mutableStateOf("Alles") }
     var completionMessage by rememberSaveable { mutableStateOf<String?>(null) }
-    val activeGuide = GuideLookup.byId(activeGuideId)
+    val activeGuide = guideLibrary.firstOrNull { it.id == activeGuideId }
     val speechController = remember(context) { SpeechController(context) }
     DisposableEffect(speechController) { onDispose { speechController.release() } }
 
@@ -191,7 +201,7 @@ private fun KlaarKompasApp() {
         }
     }
     val finishGuide: (String) -> Unit = { id ->
-        val title = GuideLookup.byId(id)?.title ?: "de handleiding"
+        val title = guideLibrary.firstOrNull { it.id == id }?.title ?: "de handleiding"
         scope.launch {
             context.dataStore.edit { values ->
                 val current = parseProgress(values[ProgressKey]).toMutableMap()
@@ -238,6 +248,7 @@ private fun KlaarKompasApp() {
                         } else {
                             when (destination) {
                                 Destination.Explore -> ExploreScreen(
+                                    guides = guideLibrary,
                                     searchQuery = searchQuery,
                                     onSearchChange = { searchQuery = it },
                                     selectedCategory = selectedCategory,
@@ -250,6 +261,7 @@ private fun KlaarKompasApp() {
                                     onToggleFavorite = toggleFavorite
                                 )
                                 Destination.Saved -> SavedScreen(
+                                    guides = guideLibrary,
                                     favorites = favorites,
                                     progress = progress,
                                     completed = completed,
@@ -258,6 +270,20 @@ private fun KlaarKompasApp() {
                                     onDismissMessage = { completionMessage = null },
                                     onOpen = openGuide,
                                     onToggleFavorite = toggleFavorite
+                                )
+                                Destination.Create -> CreateGuideScreen(
+                                    largeText = largeText,
+                                    onCancel = { destination = Destination.Explore },
+                                    onSave = { guide ->
+                                        scope.launch {
+                                            context.dataStore.edit { values ->
+                                                val existing = CustomGuideCodec.decode(values[CustomGuidesKey])
+                                                values[CustomGuidesKey] = CustomGuideCodec.encode(existing + guide)
+                                            }
+                                        }
+                                        completionMessage = "Je eigen handleiding is opgeslagen en bewaard bij Mijn gidsen."
+                                        destination = Destination.Saved
+                                    }
                                 )
                                 Destination.Settings -> SettingsScreen(
                                     largeText = largeText,
@@ -365,6 +391,7 @@ private fun BottomNavigation(selected: Destination, onSelect: (Destination) -> U
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExploreScreen(
+    guides: List<Guide>,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     selectedCategory: String,
@@ -376,8 +403,15 @@ private fun ExploreScreen(
     onOpen: (String) -> Unit,
     onToggleFavorite: (String) -> Unit
 ) {
-    val allGuides = nl.draveinx.klaarkompas.data.GuideRepository.search(searchQuery, selectedCategory)
-    val inProgress = nl.draveinx.klaarkompas.data.GuideRepository.guides.filter { it.id in progress.keys && it.id !in completed }
+    val allGuides = guides.filter { guide ->
+        (selectedCategory == "Alles" || guide.category == selectedCategory) &&
+            (searchQuery.isBlank() ||
+                guide.title.contains(searchQuery, ignoreCase = true) ||
+                guide.summary.contains(searchQuery, ignoreCase = true) ||
+                guide.tags.any { it.contains(searchQuery, ignoreCase = true) } ||
+                guide.steps.any { it.title.contains(searchQuery, ignoreCase = true) || it.instruction.contains(searchQuery, ignoreCase = true) })
+    }
+    val inProgress = guides.filter { it.id in progress.keys && it.id !in completed }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
@@ -442,6 +476,7 @@ private fun ExploreScreen(
 
 @Composable
 private fun SavedScreen(
+    guides: List<Guide>,
     favorites: Set<String>,
     progress: Map<String, Int>,
     completed: Set<String>,
@@ -451,7 +486,7 @@ private fun SavedScreen(
     onOpen: (String) -> Unit,
     onToggleFavorite: (String) -> Unit
 ) {
-    val savedGuides = nl.draveinx.klaarkompas.data.GuideRepository.guides.filter { guide ->
+    val savedGuides = guides.filter { guide ->
         guide.id in favorites || (guide.id in progress.keys && guide.id !in completed)
     }
     Column(Modifier.fillMaxSize()) {
@@ -493,6 +528,88 @@ private fun SavedScreen(
                 }
             }
         }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CreateGuideScreen(
+    largeText: Boolean,
+    onCancel: () -> Unit,
+    onSave: (Guide) -> Unit
+) {
+    var title by rememberSaveable { mutableStateOf("") }
+    var summary by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf("Leren & maken") }
+    var minutesText by rememberSaveable { mutableStateOf("10") }
+    var stepsText by rememberSaveable { mutableStateOf("") }
+    val parsedSteps = stepsText.lineSequence().map { it.trim() }.filter { it.isNotBlank() }
+        .mapIndexed { index, line ->
+            val parts = line.split(":", limit = 2)
+            if (parts.size == 2) GuideStep(parts[0].trim().ifBlank { "Stap ${index + 1}" }, parts[1].trim())
+            else GuideStep("Stap ${index + 1}", line)
+        }.filter { it.instruction.isNotBlank() }.take(20).toList()
+
+    Column(
+        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            IconButton(onClick = onCancel, modifier = Modifier.semantics { contentDescription = "Gids maken annuleren" }) {
+                Icon(Icons.Outlined.ArrowBack, contentDescription = null)
+            }
+            Column(Modifier.weight(1f)) {
+                Text("Maak je eigen handleiding", fontSize = if (largeText) 27.sp else 23.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Text("Schrijf het op in kleine, duidelijke stappen.", color = Muted)
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = title, onValueChange = { title = it.take(90) }, modifier = Modifier.fillMaxWidth(), label = { Text("Titel van je handleiding") }, placeholder = { Text("Bijv. Mijn tablet klaarmaken") }, singleLine = true)
+                OutlinedTextField(value = summary, onValueChange = { summary = it.take(220) }, modifier = Modifier.fillMaxWidth(), label = { Text("Korte uitleg (optioneel)") }, minLines = 2, maxLines = 4)
+                OutlinedTextField(value = minutesText, onValueChange = { minutesText = it.filter(Char::isDigit).take(3) }, modifier = Modifier.fillMaxWidth(), label = { Text("Geschatte tijd in minuten") }, singleLine = true)
+                Text("Kies een categorie", color = Ink, fontWeight = FontWeight.SemiBold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(GuideRepository.categories.drop(1)) { item ->
+                        FilterChip(selected = category == item, onClick = { category = item }, label = { Text(item) })
+                    }
+                }
+                OutlinedTextField(
+                    value = stepsText,
+                    onValueChange = { stepsText = it.lineSequence().take(20).joinToString("\n").take(12000) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Stappen (maximaal 20)") },
+                    placeholder = { Text("Eén stap per regel. Gebruik eventueel ‘Titel: uitleg’.") },
+                    minLines = 5,
+                    maxLines = 12,
+                    supportingText = { Text("${parsedSteps.size}/20 stappen") }
+                )
+            }
+        }
+        Text("Tip: gebruik één handeling per regel. Je kunt je eigen gids later offline openen.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
+        Button(
+            onClick = {
+                onSave(Guide(
+                    id = "custom-${UUID.randomUUID()}",
+                    title = title.trim(),
+                    summary = summary.trim().ifBlank { "Een persoonlijke handleiding." },
+                    category = category,
+                    minutes = minutesText.toIntOrNull()?.coerceIn(1, 600) ?: 10,
+                    tags = listOf("mijn gids", "persoonlijk", category.lowercase(Locale.ROOT)),
+                    steps = parsedSteps
+                ))
+            },
+            enabled = title.isNotBlank() && parsedSteps.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(15.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Teal)
+        ) {
+            Icon(Icons.Outlined.CheckCircle, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Handleiding opslaan")
+        }
+        TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Annuleren") }
     }
 }
 
