@@ -1,17 +1,17 @@
-# Build status — source package 0.1.0
+# Build status — source package 0.2.0
 
-## Verified in this environment
-- Kotlin compiler successfully compiled `GuideRepository.kt`.
-- Executed a Kotlin smoke-test program against the compiled guide library: 33 guides, unique IDs, non-empty titles and steps, case-insensitive search, category-aware search and valid categories all passed.
-- All six Android XML files parsed successfully.
-- Static checks confirmed that Internet permission is absent, the app activity is resizable, phone and tablet product flavors exist, and the CI workflow declares both variants' test/lint/build tasks.
-- Source ZIP integrity check passed.
-- Added `tools/validate_project.py`; GitHub Actions will run it before attempting the Android build.
+## Verified locally
+- `python tools/validate_project.py`: 37 passed, 0 failed.
+- The guide catalogue contains 33 unique starter guides with valid categories and searchable content.
+- The local Kotlin compiler and codec smoke test passed for personal guide serialization, including Unicode, punctuation separators, multiline instructions and optional tips.
+- XML files parsed successfully; the manifest does not request Internet access and disables Android backup.
+- Separate phone and tablet product flavors, version 0.2.0 and their own application IDs are configured.
 
-## Not yet verified
-- Full Android/Compose compilation.
-- Gradle unit-test and Android lint task results.
-- APK/AAB assembly and installation on physical devices.
-- Release signing or Google Play submission.
+## Still needs GitHub Actions/device confirmation
+- Full Android/Compose compilation of the app.
+- Android unit-test and lint task results for phone and tablet.
+- Phone/tablet debug APK, release APK and AAB builds.
+- Installation and UI checks on real Android phone and tablet hardware.
+- Release signing and Google Play submission.
 
-The local environment has Java and Kotlin but no Android SDK or installed Gradle distribution. Downloading Gradle failed because external DNS/network access was unavailable. Therefore no APK/AAB can truthfully be marked as built or install-tested from this environment. The first GitHub Actions run in a separate repository must establish those results.
+No APK/AAB build is being called successful until a GitHub Actions run confirms the corresponding tasks. Release outputs must be signed through a secure, separate signing setup before Play Store publication.
