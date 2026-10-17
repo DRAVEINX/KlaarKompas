@@ -1,13 +1,24 @@
 package nl.draveinx.klaarkompas
 
+import android.Manifest
+import android.app.DatePickerDialog
 import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,6 +57,14 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Lightbulb
@@ -55,7 +74,9 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -82,6 +103,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -95,7 +117,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -112,7 +136,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.time.LocalDate
+import java.time.LocalTime
 import java.util.Locale
 import java.util.UUID
 import nl.draveinx.klaarkompas.data.CustomGuideCodec
@@ -122,12 +151,7 @@ import nl.draveinx.klaarkompas.data.GuideRepository
 import nl.draveinx.klaarkompas.support.AdaptiveHelp
 import nl.draveinx.klaarkompas.support.HelpStyle
 
-private val Context.dataStore by preferencesDataStore(name = "klaarkompas_preferences")
-private val FavoritesKey = stringSetPreferencesKey("favorite_guides")
-private val CompletedKey = stringSetPreferencesKey("completed_guides")
-private val ProgressKey = stringPreferencesKey("guide_progress")
-private val LargeTextKey = booleanPreferencesKey("large_text")
-private val CustomGuidesKey = stringPreferencesKey("custom_guides_v1")
+internal val Context.dataStore by preferencesDataStore(name = "klaarkompas_preferences")
 private const val PrivacyPolicyUrl = "https://github.com/DRAVEINX/KlaarKompas/blob/main/docs/PRIVACY_POLICY_NL.md"
 
 private val Ink = Color(0xFFEAF5FC)
@@ -143,34 +167,46 @@ private val Border = Color(0xFF234357)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { KlaarKompasTheme { KlaarKompasApp() } }
+        setContent {
+            val appContext = this@MainActivity
+            val preferencesFlow = remember(appContext) {
+                appContext.dataStore.data.catch { emit(emptyPreferences()) }
+            }
+            val preferences by preferencesFlow.collectAsState(initial = emptyPreferences())
+            KlaarKompasTheme(highContrast = preferences[HighContrastKey] ?: false) {
+                KlaarKompasApp()
+            }
+        }
     }
 }
 
 private enum class Destination(val label: String, val icon: ImageVector) {
+    Home("Start", Icons.Outlined.Home),
     Explore("Ontdekken", Icons.Outlined.Explore),
     Saved("Mijn gidsen", Icons.Outlined.BookmarkBorder),
+    Planner("Dagplanner", Icons.Outlined.CalendarMonth),
     Together("Samen-doen", Icons.Outlined.Lightbulb),
     Create("Gids maken", Icons.Outlined.Add),
+    More("Meer", Icons.AutoMirrored.Outlined.MenuBook),
     Settings("Instellingen", Icons.Outlined.Settings)
 }
 
 @Composable
-private fun KlaarKompasTheme(content: @Composable () -> Unit) {
+private fun KlaarKompasTheme(highContrast: Boolean = false, content: @Composable () -> Unit) {
     val scheme = darkColorScheme(
-        primary = Teal,
-        onPrimary = AppBackground,
+        primary = if (highContrast) Color(0xFFFFF176) else Teal,
+        onPrimary = Color(0xFF000000),
         primaryContainer = Mint,
         onPrimaryContainer = Ink,
-        secondary = Gold,
-        onSecondary = AppBackground,
+        secondary = if (highContrast) Color.White else Gold,
+        onSecondary = Color(0xFF000000),
         background = AppBackground,
         onBackground = Ink,
         surface = Panel,
         onSurface = Ink,
         surfaceVariant = PanelElevated,
         onSurfaceVariant = Muted,
-        outline = Border,
+        outline = if (highContrast) Color.White else Border,
         error = Color(0xFFFF887F)
     )
     MaterialTheme(colorScheme = scheme, content = content)
@@ -188,10 +224,18 @@ private fun KlaarKompasApp() {
     val completed = preferences[CompletedKey] ?: emptySet()
     val progress = remember(preferences[ProgressKey]) { parseProgress(preferences[ProgressKey]) }
     val largeText = preferences[LargeTextKey] ?: false
+    val highContrast = preferences[HighContrastKey] ?: false
+    val simpleLanguage = preferences[SimpleLanguageKey] ?: false
+    val autoReadSteps = preferences[AutoReadKey] ?: false
     val customGuides = remember(preferences[CustomGuidesKey]) { CustomGuideCodec.decode(preferences[CustomGuidesKey]) }
+    val plannerTasks = remember(preferences[PlannerKey]) { PlannerTaskCodec.decode(preferences[PlannerKey]) }
+    val recentGuideIds = remember(preferences[RecentGuidesKey]) {
+        preferences[RecentGuidesKey].orEmpty().split("|").filter { it.isNotBlank() }.distinct().take(8)
+    }
     val guideLibrary = remember(customGuides) { GuideRepository.guides + customGuides }
 
-    var destination by rememberSaveable { mutableStateOf(Destination.Explore) }
+    var destination by rememberSaveable { mutableStateOf(Destination.Home) }
+    var editingGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var activeGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedCategory by rememberSaveable { mutableStateOf("Alles") }
@@ -235,6 +279,68 @@ private fun KlaarKompasApp() {
     val openGuide: (String) -> Unit = { id ->
         activeGuideId = id
         completionMessage = null
+        scope.launch {
+            context.dataStore.edit { values ->
+                val current = values[RecentGuidesKey].orEmpty().split("|").filter { it.isNotBlank() }
+                values[RecentGuidesKey] = (listOf(id) + current.filterNot { it == id }).take(8).joinToString("|")
+            }
+        }
+    }
+
+    val backupSaveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri != null) scope.launch(Dispatchers.IO) {
+            val result = runCatching { KlaarKompasBackup.write(context, preferences, uri) }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    if (result.isSuccess) "Back-up gemaakt, inclusief lokale gidsfoto's." else "Back-up mislukt: ${result.exceptionOrNull()?.message ?: "onbekende fout"}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+    val backupOpenLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) scope.launch(Dispatchers.IO) {
+            val result = runCatching { KlaarKompasBackup.restore(context, uri) }
+            if (result.isSuccess) {
+                val updated = context.dataStore.data.catch { emit(emptyPreferences()) }.first()
+                PlannerTaskCodec.decode(updated[PlannerKey]).filter { it.reminderEnabled }.forEach {
+                    runCatching { PlannerReminderScheduler.schedule(context, it) }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    if (result.isSuccess) "Back-up teruggezet." else "Terugzetten mislukt: ${result.exceptionOrNull()?.message ?: "ongeldig bestand"}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    val savePlannerTask: (PlannerTask) -> Unit = { task ->
+        scope.launch {
+            context.dataStore.edit { values ->
+                val current = PlannerTaskCodec.decode(values[PlannerKey]).filterNot { it.id == task.id }
+                values[PlannerKey] = PlannerTaskCodec.encode(current + task)
+            }
+            if (task.reminderEnabled) PlannerReminderScheduler.schedule(context, task)
+            else PlannerReminderScheduler.cancel(context, task.id)
+        }
+    }
+    val deletePlannerTask: (PlannerTask) -> Unit = { task ->
+        scope.launch {
+            context.dataStore.edit { values ->
+                values[PlannerKey] = PlannerTaskCodec.encode(
+                    PlannerTaskCodec.decode(values[PlannerKey]).filterNot { it.id == task.id }
+                )
+            }
+            PlannerReminderScheduler.cancel(context, task.id)
+        }
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = AppBackground) {
@@ -258,13 +364,49 @@ private fun KlaarKompasApp() {
                                 initialStep = progress[activeGuide.id] ?: 0,
                                 largeText = largeText,
                                 tabletLayout = tabletLayout,
+                                simpleLanguage = simpleLanguage,
+                                autoRead = autoReadSteps,
                                 onExit = { activeGuideId = null },
                                 onProgress = saveProgress,
                                 onComplete = finishGuide,
-                                onSpeak = speechController::speak
+                                onSpeak = speechController::speak,
+                                onShare = { guide ->
+                                    val instructions = buildString {
+                                        appendLine(guide.title)
+                                        appendLine(guide.summary)
+                                        appendLine()
+                                        guide.steps.forEachIndexed { index, step ->
+                                            appendLine("${index + 1}. ${step.title}")
+                                            appendLine(step.instruction)
+                                            step.tip?.let { appendLine("Tip: $it") }
+                                            appendLine()
+                                        }
+                                        guide.safetyNote?.let { appendLine("Let op: $it") }
+                                        appendLine()
+                                        append("Gedeeld vanuit KlaarKompas. De ontvanger kan deze tekst zelf opslaan als persoonlijke handleiding.")
+                                    }
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_SUBJECT, guide.title)
+                                        putExtra(Intent.EXTRA_TEXT, instructions)
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "Deel handleiding"))
+                                }
                             )
                         } else {
                             when (destination) {
+                                Destination.Home -> DashboardScreen(
+                                    guides = guideLibrary,
+                                    favorites = favorites,
+                                    progress = progress,
+                                    completed = completed,
+                                    recentGuideIds = recentGuideIds,
+                                    tasks = plannerTasks,
+                                    largeText = largeText,
+                                    onOpen = openGuide,
+                                    onToggleFavorite = toggleFavorite,
+                                    onNavigate = { destination = it }
+                                )
                                 Destination.Explore -> ExploreScreen(
                                     guides = guideLibrary,
                                     searchQuery = searchQuery,
@@ -288,7 +430,43 @@ private fun KlaarKompasApp() {
                                     largeText = largeText,
                                     onDismissMessage = { completionMessage = null },
                                     onOpen = openGuide,
-                                    onToggleFavorite = toggleFavorite
+                                    onToggleFavorite = toggleFavorite,
+                                    onEdit = { guide -> editingGuideId = guide.id; destination = Destination.Create },
+                                    onDelete = { guide ->
+                                        scope.launch {
+                                            context.dataStore.edit { values ->
+                                                val custom = CustomGuideCodec.decode(values[CustomGuidesKey]).filterNot { it.id == guide.id }
+                                                values[CustomGuidesKey] = CustomGuideCodec.encode(custom)
+                                                values[FavoritesKey] = (values[FavoritesKey] ?: emptySet()) - guide.id
+                                                values[CompletedKey] = (values[CompletedKey] ?: emptySet()) - guide.id
+                                                val currentProgress = parseProgress(values[ProgressKey]).toMutableMap()
+                                                currentProgress.remove(guide.id)
+                                                values[ProgressKey] = serializeProgress(currentProgress)
+                                                values[RecentGuidesKey] = values[RecentGuidesKey].orEmpty().split("|").filter { it.isNotBlank() && it != guide.id }.joinToString("|")
+                                            }
+                                        }
+                                        completionMessage = "‘${guide.title}’ is verwijderd."
+                                    },
+                                    onDuplicate = { guide ->
+                                        val copy = guide.copy(id = "custom-${UUID.randomUUID()}", title = "${guide.title} (kopie)")
+                                        scope.launch {
+                                            context.dataStore.edit { values ->
+                                                val existing = CustomGuideCodec.decode(values[CustomGuidesKey])
+                                                values[CustomGuidesKey] = CustomGuideCodec.encode(existing + copy)
+                                            }
+                                        }
+                                        completionMessage = "Kopie van ‘${guide.title}’ gemaakt."
+                                    }
+                                )
+                                Destination.Planner -> PlannerScreen(
+                                    tasks = plannerTasks,
+                                    largeText = largeText,
+                                    onSaveTask = savePlannerTask,
+                                    onDeleteTask = deletePlannerTask,
+                                    onToggleTask = { task, done ->
+                                        savePlannerTask(task.copy(completed = done, reminderEnabled = if (done) false else task.reminderEnabled))
+                                    },
+                                    onSpeak = speechController::speak
                                 )
                                 Destination.Together -> TogetherScreen(
                                     largeText = largeText,
@@ -296,23 +474,43 @@ private fun KlaarKompasApp() {
                                 )
                                 Destination.Create -> CreateGuideScreen(
                                     largeText = largeText,
-                                    onCancel = { destination = Destination.Explore },
+                                    initialGuide = editingGuideId?.let { id -> guideLibrary.firstOrNull { it.id == id } },
+                                    onCancel = { editingGuideId = null; destination = Destination.Saved },
                                     onSave = { guide ->
                                         scope.launch {
                                             context.dataStore.edit { values ->
                                                 val existing = CustomGuideCodec.decode(values[CustomGuidesKey])
-                                                values[CustomGuidesKey] = CustomGuideCodec.encode(existing + guide)
+                                                values[CustomGuidesKey] = CustomGuideCodec.encode(existing.filterNot { it.id == guide.id } + guide)
                                             }
                                         }
-                                        completionMessage = "Je eigen handleiding is opgeslagen en bewaard bij Mijn gidsen."
+                                        completionMessage = if (editingGuideId == null) "Je handleiding is opgeslagen bij Mijn gidsen." else "Je handleiding is bijgewerkt."
+                                        editingGuideId = null
                                         destination = Destination.Saved
                                     }
                                 )
+                                Destination.More -> MoreScreen(
+                                    largeText = largeText,
+                                    onNavigate = { destination = it }
+                                )
                                 Destination.Settings -> SettingsScreen(
                                     largeText = largeText,
+                                    highContrast = highContrast,
+                                    simpleLanguage = simpleLanguage,
+                                    autoRead = autoReadSteps,
                                     onLargeTextChange = { enabled ->
                                         scope.launch { context.dataStore.edit { it[LargeTextKey] = enabled } }
-                                    }
+                                    },
+                                    onHighContrastChange = { enabled ->
+                                        scope.launch { context.dataStore.edit { it[HighContrastKey] = enabled } }
+                                    },
+                                    onSimpleLanguageChange = { enabled ->
+                                        scope.launch { context.dataStore.edit { it[SimpleLanguageKey] = enabled } }
+                                    },
+                                    onAutoReadChange = { enabled ->
+                                        scope.launch { context.dataStore.edit { it[AutoReadKey] = enabled } }
+                                    },
+                                    onBackup = { backupSaveLauncher.launch("KlaarKompas-back-up-${LocalDate.now()}.zip") },
+                                    onRestore = { backupOpenLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }
                                 )
                             }
                         }
@@ -321,6 +519,7 @@ private fun KlaarKompasApp() {
                         BottomNavigation(selected = destination, onSelect = {
                             destination = it
                             completionMessage = null
+                            editingGuideId = null
                         })
                     }
                 }
