@@ -1272,7 +1272,11 @@ private fun SettingSwitchCard(
                 Text(title, color = Ink, fontWeight = FontWeight.SemiBold)
                 Text(description, color = Muted, fontSize = 13.sp)
             }
-            Switch(checked = checked, onCheckedChange = onCheckedChange, m
+            Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.semantics { contentDescription = title })
+        }
+    }
+}
+
 @Composable
 private fun DashboardScreen(
     guides: List<Guide>,
@@ -1595,11 +1599,6 @@ private fun GuidePhoto(reference: String?, modifier: Modifier = Modifier) {
     } else {
         Box(modifier.background(PanelElevated), contentAlignment = Alignment.Center) {
             Icon(Icons.Outlined.Explore, contentDescription = "Geen foto beschikbaar", tint = Teal)
-        }
-    }
-}
-
-odifier = Modifier.semantics { contentDescription = title })
         }
     }
 }
