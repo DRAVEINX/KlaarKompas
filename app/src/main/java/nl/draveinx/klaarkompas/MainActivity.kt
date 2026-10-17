@@ -871,12 +871,17 @@ private fun SavedScreen(
     largeText: Boolean,
     onDismissMessage: () -> Unit,
     onOpen: (String) -> Unit,
-    onToggleFavorite: (String) -> Unit
+    onToggleFavorite: (String) -> Unit,
+    onEdit: (Guide) -> Unit,
+    onDelete: (Guide) -> Unit,
+    onDuplicate: (Guide) -> Unit
 ) {
+    var pendingDelete by rememberSaveable { mutableStateOf<Guide?>(null) }
     val savedGuides = guides.filter { guide ->
-        guide.id in favorites || (guide.id in progress.keys && guide.id !in completed)
+        guide.id.startsWith("custom-") || guide.id in favorites ||
+            (guide.id in progress.keys && guide.id !in completed)
     }
-    Column(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
@@ -885,7 +890,7 @@ private fun SavedScreen(
             item {
                 Text("Mijn gidsen", fontSize = if (largeText) 28.sp else 24.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Spacer(Modifier.height(4.dp))
-                Text("Bewaar wat je vaker gebruikt en hervat je voortgang.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
+                Text("Je eigen handleidingen, favorieten en taken die je wilt hervatten.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
             }
             if (completionMessage != null) {
                 item {
@@ -899,21 +904,63 @@ private fun SavedScreen(
                 }
             }
             if (savedGuides.isEmpty()) {
-                item { EmptyState("Je gidsen staan hier", "Bewaar een handleiding met het bladwijzer-icoon of start er een om later verder te gaan.", Icons.Outlined.BookmarkBorder) }
+                item { EmptyState("Je gidsen staan hier", "Bewaar een handleiding als favoriet, maak zelf een gids of start er een om later verder te gaan.", Icons.Outlined.BookmarkBorder) }
             } else {
-                item { SectionHeading("Bewaard en bezig", "Je favorieten en handleidingen met voortgang.") }
-                items(savedGuides, key = { "saved-${it.id}" }) { guide ->
-                    GuideCard(
-                        guide = guide,
-                        isFavorite = guide.id in favorites,
-                        progressIndex = progress[guide.id],
-                        isCompleted = guide.id in completed,
-                        largeText = largeText,
-                        onOpen = { onOpen(guide.id) },
-                        onToggleFavorite = { onToggleFavorite(guide.id) }
-                    )
+                item { SectionHeading("Bewaard en zelfgemaakt", "Eigen gidsen kun je aanpassen, kopiëren of verwijderen.") }
+                items(savedGuides, key = { "saved-\${it.id}" }) { guide ->
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        GuideCard(
+                            guide = guide,
+                            isFavorite = guide.id in favorites,
+                            progressIndex = progress[guide.id],
+                            isCompleted = guide.id in completed,
+                            largeText = largeText,
+                            onOpen = { onOpen(guide.id) },
+                            onToggleFavorite = { onToggleFavorite(guide.id) }
+                        )
+                        if (guide.id.startsWith("custom-")) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(start = 8.dp),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = { onEdit(guide) }) {
+                                    Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(17.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Bewerken")
+                                }
+                                TextButton(onClick = { onDuplicate(guide) }) {
+                                    Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(17.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Kopiëren")
+                                }
+                                IconButton(onClick = { pendingDelete = guide }, modifier = Modifier.semantics { contentDescription = "Verwijder \${guide.title}" }) {
+                                    Icon(Icons.Outlined.Delete, contentDescription = null, tint = Color(0xFFFF887F))
+                                }
+                            }
+                        }
+                    }
                 }
             }
+            item { Spacer(Modifier.height(8.dp)) }
+        }
+        val selectedForDelete = pendingDelete
+        if (selectedForDelete != null) {
+            AlertDialog(
+                onDismissRequest = { pendingDelete = null },
+                title = { Text("Handleiding verwijderen?") },
+                text = { Text("‘\${selectedForDelete.title}’ wordt van dit apparaat verwijderd. Maak eerst een back-up als je hem wilt bewaren.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        onDelete(selectedForDelete)
+                        pendingDelete = null
+                    }) { Text("Verwijderen") }
+                },
+                dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Annuleren") } },
+                containerColor = Panel,
+                titleContentColor = Ink,
+                textContentColor = Muted
+            )
         }
     }
 }
