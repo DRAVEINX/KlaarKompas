@@ -38,7 +38,7 @@ build_file = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")
 require("create(\"phone\")" in build_file, "phone product flavor exists")
 require("create(\"tablet\")" in build_file, "tablet product flavor exists")
 require("compileSdk = 36" in build_file, "compile SDK is pinned")
-require('versionCode = 2' in build_file and 'versionName = "0.2.0"' in build_file, "Android package version is 0.2.0")
+require('versionCode = 3' in build_file and 'versionName = "0.3.0"' in build_file, "Android package version is 0.3.0")
 require('applicationIdSuffix = ".phone"' in build_file, "phone has its own application ID")
 require('applicationIdSuffix = ".tablet"' in build_file, "tablet has its own application ID")
 
