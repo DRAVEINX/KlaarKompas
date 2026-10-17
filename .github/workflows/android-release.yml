@@ -1,0 +1,154 @@
+name: KlaarKompas Signed Android Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-signed-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  signed-release:
+    name: Sign and verify phone + tablet release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout the selected main commit
+        uses: actions/checkout@v7
+
+      - name: Set up Python for project preflight
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Validate project structure and release tasks
+        run: python tools/validate_project.py
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.13'
+
+      - name: Check required protected signing secrets
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in ANDROID_UPLOAD_KEYSTORE_BASE64 ANDROID_UPLOAD_KEYSTORE_PASSWORD ANDROID_UPLOAD_KEY_ALIAS ANDROID_UPLOAD_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Required GitHub Actions secret is missing: $name"
+              exit 1
+            fi
+          done
+
+      - name: Decode upload keystore outside the workspace
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/klaarkompas-upload.jks"
+          chmod 600 "$RUNNER_TEMP/klaarkompas-upload.jks"
+          test -s "$RUNNER_TEMP/klaarkompas-upload.jks"
+
+      - name: Run unit tests and lint for both variants
+        run: >-
+          gradle --no-daemon
+          testPhoneDebugUnitTest
+          testTabletDebugUnitTest
+          lintPhoneDebug
+          lintTabletDebug
+
+      - name: Build signed phone and tablet release APKs and AABs
+        env:
+          ANDROID_UPLOAD_KEYSTORE_PATH: ${{ runner.temp }}/klaarkompas-upload.jks
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: >-
+          gradle --no-daemon
+          assemblePhoneRelease
+          assembleTabletRelease
+          bundlePhoneRelease
+          bundleTabletRelease
+
+      - name: Verify APK and AAB signatures
+        run: |
+          set -euo pipefail
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          for apk in app/build/outputs/apk/phone/release/*.apk app/build/outputs/apk/tablet/release/*.apk; do
+            test -f "$apk"
+            "$APKSIGNER" verify --verbose --print-certs "$apk"
+          done
+          for aab in app/build/outputs/bundle/phoneRelease/*.aab app/build/outputs/bundle/tabletRelease/*.aab; do
+            test -f "$aab"
+            VERIFY_OUTPUT="$(jarsigner -verify "$aab" 2>&1)" || {
+              printf '%s\n' "$VERIFY_OUTPUT"
+              echo "::error::AAB signature verification command failed: $aab"
+              exit 1
+            }
+            printf '%s\n' "$VERIFY_OUTPUT"
+            if ! printf '%s\n' "$VERIFY_OUTPUT" | grep -Fq "jar verified."; then
+              echo "::error::AAB is not confirmed as signed: $aab"
+              exit 1
+            fi
+          done
+
+      - name: Write release metadata and SHA-256 checksums
+        run: |
+          set -euo pipefail
+          mkdir -p release-metadata
+          VERSION_CODE="$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\)$/\1/p' app/build.gradle.kts | head -n 1)"
+          VERSION_NAME="$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)"$/\1/p' app/build.gradle.kts | head -n 1)"
+          {
+            echo "source_commit=$GITHUB_SHA"
+            echo "version_name=$VERSION_NAME"
+            echo "version_code=$VERSION_CODE"
+            echo "phone_application_id=nl.draveinx.klaarkompas.phone"
+            echo "tablet_application_id=nl.draveinx.klaarkompas.tablet"
+            echo "signatures=verified"
+            echo "google_play_upload=manual; no automatic publishing"
+          } > release-metadata/RELEASE_STATUS.txt
+          sha256sum \
+            app/build/outputs/apk/phone/release/*.apk \
+            app/build/outputs/apk/tablet/release/*.apk \
+            app/build/outputs/bundle/phoneRelease/*.aab \
+            app/build/outputs/bundle/tabletRelease/*.aab \
+            > release-metadata/SHA256SUMS.txt
+
+      - name: Upload signed release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: klaarkompas-android-signed-release-${{ github.run_number }}
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            app/build/outputs/apk/phone/release/*.apk
+            app/build/outputs/apk/tablet/release/*.apk
+            app/build/outputs/bundle/phoneRelease/*.aab
+            app/build/outputs/bundle/tabletRelease/*.aab
+            app/build/reports/tests/testPhoneDebugUnitTest/**
+            app/build/reports/tests/testTabletDebugUnitTest/**
+            app/build/reports/lint-results-phoneDebug.html
+            app/build/reports/lint-results-tabletDebug.html
+            release-metadata/**

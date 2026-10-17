@@ -4,29 +4,53 @@
 
 **Source version: 0.2.0**
 
-KlaarKompas is een offline-first Android starter app with an independent phone variant and tablet variant. It helps people find a practical guide, follow one step at a time, listen to instructions, save favourites, create their own guides and resume progress.
+KlaarKompas is an offline-first Dutch-language Android app with separate phone and tablet editions. It helps people find practical guides, follow one step at a time, listen to instructions, save favourites, create personal guides and resume progress.
 
-> **Project status:** first MVP source package. The source and CI workflow are prepared; no build has been run in this environment because Android SDK/Gradle dependencies are not installed and outbound downloads are unavailable. The first GitHub Actions run must pass before the APK/AAB artifacts can be called verified.
+## Included in this MVP
 
-## Included in this starter build
-
-- 33 bundled Dutch-language guides across five subject categories, available offline.
+- More than 30 bundled Dutch-language guides across five categories, available offline.
 - Search across guide titles, summaries, categories and tags.
-- Guided one-step-at-a-time reading with progress, previous/next, completion and an “I’m stuck” helper with three alternatives.
-- Create up to 20-step personal guides with a title, category and estimated time; personal guides are saved locally and included in search and “Mijn gidsen”.
-- URL-safe Base64 persistence for personal guides protects punctuation and multiline instructions from corrupting saved records.
-- Text-to-speech for a guide step, TalkBack-friendly labelled controls, and a larger-text setting.
-- Local favourites and progress storage through Android DataStore; no login or network permission is requested.
-- Adaptive layouts: compact bottom navigation on phones and a navigation sidebar / wider guided layout on larger screens.
+- One-step-at-a-time guide flow with progress, previous/next, completion and an “Ik loop vast” helper with three alternatives.
+- Create personal guides with up to 20 steps; personal guides are saved locally and included in search and “Mijn gidsen”.
+- URL-safe Base64 persistence for personal guides to protect punctuation and multiline instructions from corrupting saved records.
+- Text-to-speech, TalkBack-friendly labelled controls and a larger-text setting.
+- Local favourites and progress storage through Android DataStore; no login or network permission is requested by the current MVP.
+- Responsive layouts: compact bottom navigation on phones and a navigation sidebar / wider guided layout on larger screens.
 - Separate `phone` and `tablet` product flavors.
-- Unit tests plus GitHub Actions tasks for both phone and tablet debug builds, release APKs, and release AABs.
 
-## Open and run locally
+## Current build status
 
-1. Install Android Studio, JDK 17 and Android SDK Platform 36 / Build Tools 36.0.0.
-2. Extract this folder, then open the `KlaarKompas` project directory in Android Studio.
-3. Let Gradle sync and install the Android SDK packages if prompted.
-4. Choose a phone or tablet run configuration (or run the commands below).
+The latest recorded GitHub Actions build on 17 October 2026 (run 17) completed successfully for validation, unit tests, lint and both phone/tablet debug, release APK and AAB build tasks. This confirms the source builds in CI; it does **not** mean the release outputs are signed or approved by Google Play.
+
+The ordinary CI artifact is named `klaarkompas-android-<run-number>-UNSIGNED`. Its debug APKs are for testing, and its release APK/AAB outputs are unsigned. **Do not upload these release files to Google Play.**
+
+## Build outputs
+
+- Phone debug APK: `app/build/outputs/apk/phone/debug/`
+- Tablet debug APK: `app/build/outputs/apk/tablet/debug/`
+- Phone release APK: `app/build/outputs/apk/phone/release/`
+- Tablet release APK: `app/build/outputs/apk/tablet/release/`
+- Phone release AAB: `app/build/outputs/bundle/phoneRelease/`
+- Tablet release AAB: `app/build/outputs/bundle/tabletRelease/`
+
+## Release signing
+
+A separate manual workflow, **KlaarKompas Signed Android Release**, builds signed phone and tablet APK/AAB files from `main`, verifies signatures and writes SHA-256 checksums. It requires a developer-owned upload keystore stored in protected GitHub Actions secrets. It does not submit files to Google Play automatically.
+
+Follow [the signing setup guide](docs/RELEASE_SIGNING.md), then complete the [release checklist](docs/RELEASE_CHECKLIST.md) and use the [Dutch Play Store listing draft](docs/PLAY_STORE_LISTING_NL.md). Read the [privacy policy draft](docs/PRIVACY_POLICY_NL.md) and confirm a public URL and support contact before using it in Play Console.
+
+Never commit a keystore, password, private key or signing secret to this repository.
+
+## App identifiers
+
+- Phone: `nl.draveinx.klaarkompas.phone`
+- Tablet: `nl.draveinx.klaarkompas.tablet`
+
+These IDs intentionally allow side-by-side installations and separate Play Store listings. Keep them unchanged after publication unless there is a deliberate migration plan.
+
+## Local development
+
+Install Android Studio, JDK 17 and Android SDK Platform 36 / Build Tools 36.0.0, then open the project in Android Studio and allow Gradle sync.
 
 On Windows PowerShell:
 
@@ -42,36 +66,8 @@ On macOS/Linux:
 ./gradlew assemblePhoneDebug assembleTabletDebug
 ```
 
-The bootstrap scripts download the pinned official Gradle 8.13 distribution on first use. The first build also needs network access to resolve Android Gradle Plugin and Maven dependencies.
-
-## Build outputs
-
-- Phone debug APK: `app/build/outputs/apk/phone/debug/`
-- Tablet debug APK: `app/build/outputs/apk/tablet/debug/`
-- Phone release APK: `app/build/outputs/apk/phone/release/`
-- Tablet release APK: `app/build/outputs/apk/tablet/release/`
-- Phone release AAB: `app/build/outputs/bundle/phoneRelease/`
-- Tablet release AAB: `app/build/outputs/bundle/tabletRelease/`
-
-Release outputs produced by the current workflow are **not signed for Google Play**. Configure a controlled signing process and Play App Signing before uploading. Do not commit a keystore, passwords, or signing keys to this repository.
-
-## GitHub Actions
-
-The workflow in `.github/workflows/android.yml` first runs `python tools/validate_project.py`, a dependency-free preflight that checks XML, the phone/tablet variants, guide-library IDs, personal-guide storage, privacy defaults, Gradle pinning and expected CI tasks. It then runs the Android unit tests and lint tasks and builds both flavors. Open **Actions → KlaarKompas Android CI**. A successful run provides the phone/tablet build artifacts; if no run appears, check the Actions tab and the workflow file under `.github/workflows/android.yml`. Download the artifact named `klaarkompas-android-<run number>` from a successful run.
-
-## App identifiers
-
-- Phone: `nl.draveinx.klaarkompas.phone`
-- Tablet: `nl.draveinx.klaarkompas.tablet`
-
-These IDs intentionally allow side-by-side installations. If the long-term product should be one Play Store listing for both screen sizes, agree on that release strategy before the first public listing; application IDs should not be changed after publication without a migration plan.
-
 ## Privacy and content quality
 
-This first version contains bundled content and saves only preferences/progress on the device. `INTERNET` permission is not declared and Android backup is disabled. The starter guides are general practical prompts, not professional legal, medical, financial, electrical or other safety-critical advice. Important instructions should be reviewed by a suitable human expert before public distribution.
+The current MVP stores preferences, favourites, guide progress and personal guides locally. The main manifest does not request Internet permission and Android backup is disabled. When text-to-speech is used, the selected text is handed to the TTS engine configured on the device; review that engine provider's privacy information. The app has no account, cloud sync or online portal in this version.
 
-## Product docs
-
-- [Product specification](docs/PRODUCT_SPEC.md)
-- [Phased roadmap](docs/ROADMAP.md)
-- [Release checklist](docs/RELEASE_CHECKLIST.md)
+Guides are general practical prompts, not professional legal, medical, financial, electrical or other safety-critical advice. Important instructions should be reviewed by a suitable human expert before public distribution.

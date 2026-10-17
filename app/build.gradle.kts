@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -9,6 +11,20 @@ kotlin {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
+
+// Release signing is enabled only when the protected CI environment supplies all
+// signing values and the keystore file exists. Local builds and ordinary CI builds
+// remain unsigned release builds; never commit the keystore or passwords.
+val releaseKeystorePath = System.getenv("ANDROID_UPLOAD_KEYSTORE_PATH")
+val releaseKeystorePassword = System.getenv("ANDROID_UPLOAD_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("ANDROID_UPLOAD_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("ANDROID_UPLOAD_KEY_PASSWORD")
+val releaseSigningConfigured =
+    !releaseKeystorePath.isNullOrBlank() &&
+        File(releaseKeystorePath).isFile &&
+        !releaseKeystorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
 
 android {
     namespace = "nl.draveinx.klaarkompas"
@@ -40,12 +56,26 @@ android {
         }
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = File(requireNotNull(releaseKeystorePath))
+                storePassword = requireNotNull(releaseKeystorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
         release {
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

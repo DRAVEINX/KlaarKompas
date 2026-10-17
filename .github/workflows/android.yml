@@ -2,7 +2,7 @@ name: KlaarKompas Android CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'release/**']
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
@@ -58,7 +58,7 @@ jobs:
           lintPhoneDebug
           lintTabletDebug
 
-      - name: Build phone and tablet APKs and AABs
+      - name: Build phone and tablet APKs and AABs (unsigned release outputs)
         run: >-
           gradle --no-daemon
           assemblePhoneDebug
@@ -68,11 +68,25 @@ jobs:
           bundlePhoneRelease
           bundleTabletRelease
 
-      - name: Upload APK and AAB artifacts
+      - name: Label CI output as not for Play upload
+        if: always()
+        run: |
+          mkdir -p build/release-status
+          cat > build/release-status/STATUS.txt <<'EOF'
+          STATUS: CI/TEST BUILD — NOT A PLAY STORE RELEASE
+          Debug APKs are for testing only.
+          Release APK/AAB outputs from this workflow are unsigned.
+          Do not upload these release files to Google Play.
+          To create signed files, add the protected signing secrets described in docs/RELEASE_SIGNING.md,
+          merge the release-preparation changes to main, then run the manual workflow:
+          Actions -> KlaarKompas Signed Android Release -> Run workflow.
+          EOF
+
+      - name: Upload CI and unsigned release artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: klaarkompas-android-${{ github.run_number }}
+          name: klaarkompas-android-${{ github.run_number }}-UNSIGNED
           if-no-files-found: warn
           retention-days: 30
           path: |
@@ -86,3 +100,4 @@ jobs:
             app/build/reports/tests/testTabletDebugUnitTest/**
             app/build/reports/lint-results-phoneDebug.html
             app/build/reports/lint-results-tabletDebug.html
+            build/release-status/STATUS.txt
