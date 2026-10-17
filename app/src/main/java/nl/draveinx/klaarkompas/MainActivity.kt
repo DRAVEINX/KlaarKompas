@@ -1,13 +1,25 @@
 package nl.draveinx.klaarkompas
 
+import android.Manifest
+import android.app.DatePickerDialog
 import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,6 +58,14 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Lightbulb
@@ -55,7 +75,9 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -82,6 +104,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -95,7 +118,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -112,7 +137,13 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.time.LocalDate
+import java.time.LocalTime
 import java.util.Locale
 import java.util.UUID
 import nl.draveinx.klaarkompas.data.CustomGuideCodec
@@ -122,12 +153,7 @@ import nl.draveinx.klaarkompas.data.GuideRepository
 import nl.draveinx.klaarkompas.support.AdaptiveHelp
 import nl.draveinx.klaarkompas.support.HelpStyle
 
-private val Context.dataStore by preferencesDataStore(name = "klaarkompas_preferences")
-private val FavoritesKey = stringSetPreferencesKey("favorite_guides")
-private val CompletedKey = stringSetPreferencesKey("completed_guides")
-private val ProgressKey = stringPreferencesKey("guide_progress")
-private val LargeTextKey = booleanPreferencesKey("large_text")
-private val CustomGuidesKey = stringPreferencesKey("custom_guides_v1")
+internal val Context.dataStore by preferencesDataStore(name = "klaarkompas_preferences")
 private const val PrivacyPolicyUrl = "https://github.com/DRAVEINX/KlaarKompas/blob/main/docs/PRIVACY_POLICY_NL.md"
 
 private val Ink = Color(0xFFEAF5FC)
@@ -143,34 +169,46 @@ private val Border = Color(0xFF234357)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { KlaarKompasTheme { KlaarKompasApp() } }
+        setContent {
+            val appContext = this@MainActivity
+            val preferencesFlow = remember(appContext) {
+                appContext.dataStore.data.catch { emit(emptyPreferences()) }
+            }
+            val preferences by preferencesFlow.collectAsState(initial = emptyPreferences())
+            KlaarKompasTheme(highContrast = preferences[HighContrastKey] ?: false) {
+                KlaarKompasApp()
+            }
+        }
     }
 }
 
 private enum class Destination(val label: String, val icon: ImageVector) {
+    Home("Start", Icons.Outlined.Home),
     Explore("Ontdekken", Icons.Outlined.Explore),
     Saved("Mijn gidsen", Icons.Outlined.BookmarkBorder),
+    Planner("Dagplanner", Icons.Outlined.CalendarMonth),
     Together("Samen-doen", Icons.Outlined.Lightbulb),
     Create("Gids maken", Icons.Outlined.Add),
+    More("Meer", Icons.AutoMirrored.Outlined.MenuBook),
     Settings("Instellingen", Icons.Outlined.Settings)
 }
 
 @Composable
-private fun KlaarKompasTheme(content: @Composable () -> Unit) {
+private fun KlaarKompasTheme(highContrast: Boolean = false, content: @Composable () -> Unit) {
     val scheme = darkColorScheme(
-        primary = Teal,
-        onPrimary = AppBackground,
+        primary = if (highContrast) Color(0xFFFFF176) else Teal,
+        onPrimary = Color(0xFF000000),
         primaryContainer = Mint,
         onPrimaryContainer = Ink,
-        secondary = Gold,
-        onSecondary = AppBackground,
+        secondary = if (highContrast) Color.White else Gold,
+        onSecondary = Color(0xFF000000),
         background = AppBackground,
         onBackground = Ink,
         surface = Panel,
         onSurface = Ink,
         surfaceVariant = PanelElevated,
         onSurfaceVariant = Muted,
-        outline = Border,
+        outline = if (highContrast) Color.White else Border,
         error = Color(0xFFFF887F)
     )
     MaterialTheme(colorScheme = scheme, content = content)
@@ -188,10 +226,18 @@ private fun KlaarKompasApp() {
     val completed = preferences[CompletedKey] ?: emptySet()
     val progress = remember(preferences[ProgressKey]) { parseProgress(preferences[ProgressKey]) }
     val largeText = preferences[LargeTextKey] ?: false
+    val highContrast = preferences[HighContrastKey] ?: false
+    val simpleLanguage = preferences[SimpleLanguageKey] ?: false
+    val autoReadSteps = preferences[AutoReadKey] ?: false
     val customGuides = remember(preferences[CustomGuidesKey]) { CustomGuideCodec.decode(preferences[CustomGuidesKey]) }
+    val plannerTasks = remember(preferences[PlannerKey]) { PlannerTaskCodec.decode(preferences[PlannerKey]) }
+    val recentGuideIds = remember(preferences[RecentGuidesKey]) {
+        preferences[RecentGuidesKey].orEmpty().split("|").filter { it.isNotBlank() }.distinct().take(8)
+    }
     val guideLibrary = remember(customGuides) { GuideRepository.guides + customGuides }
 
-    var destination by rememberSaveable { mutableStateOf(Destination.Explore) }
+    var destination by rememberSaveable { mutableStateOf(Destination.Home) }
+    var editingGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var activeGuideId by rememberSaveable { mutableStateOf<String?>(null) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedCategory by rememberSaveable { mutableStateOf("Alles") }
@@ -235,6 +281,68 @@ private fun KlaarKompasApp() {
     val openGuide: (String) -> Unit = { id ->
         activeGuideId = id
         completionMessage = null
+        scope.launch {
+            context.dataStore.edit { values ->
+                val current = values[RecentGuidesKey].orEmpty().split("|").filter { it.isNotBlank() }
+                values[RecentGuidesKey] = (listOf(id) + current.filterNot { it == id }).take(8).joinToString("|")
+            }
+        }
+    }
+
+    val backupSaveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri != null) scope.launch(Dispatchers.IO) {
+            val result = runCatching { KlaarKompasBackup.write(context, preferences, uri) }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    if (result.isSuccess) "Back-up gemaakt, inclusief lokale gidsfoto's." else "Back-up mislukt: ${result.exceptionOrNull()?.message ?: "onbekende fout"}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+    val backupOpenLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) scope.launch(Dispatchers.IO) {
+            val result = runCatching { KlaarKompasBackup.restore(context, uri) }
+            if (result.isSuccess) {
+                val updated = context.dataStore.data.catch { emit(emptyPreferences()) }.first()
+                PlannerTaskCodec.decode(updated[PlannerKey]).filter { it.reminderEnabled }.forEach {
+                    runCatching { PlannerReminderScheduler.schedule(context, it) }
+                }
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    if (result.isSuccess) "Back-up teruggezet." else "Terugzetten mislukt: ${result.exceptionOrNull()?.message ?: "ongeldig bestand"}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    val savePlannerTask: (PlannerTask) -> Unit = { task ->
+        scope.launch {
+            context.dataStore.edit { values ->
+                val current = PlannerTaskCodec.decode(values[PlannerKey]).filterNot { it.id == task.id }
+                values[PlannerKey] = PlannerTaskCodec.encode(current + task)
+            }
+            if (task.reminderEnabled) PlannerReminderScheduler.schedule(context, task)
+            else PlannerReminderScheduler.cancel(context, task.id)
+        }
+    }
+    val deletePlannerTask: (PlannerTask) -> Unit = { task ->
+        scope.launch {
+            context.dataStore.edit { values ->
+                values[PlannerKey] = PlannerTaskCodec.encode(
+                    PlannerTaskCodec.decode(values[PlannerKey]).filterNot { it.id == task.id }
+                )
+            }
+            PlannerReminderScheduler.cancel(context, task.id)
+        }
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = AppBackground) {
@@ -258,13 +366,49 @@ private fun KlaarKompasApp() {
                                 initialStep = progress[activeGuide.id] ?: 0,
                                 largeText = largeText,
                                 tabletLayout = tabletLayout,
+                                simpleLanguage = simpleLanguage,
+                                autoRead = autoReadSteps,
                                 onExit = { activeGuideId = null },
                                 onProgress = saveProgress,
                                 onComplete = finishGuide,
-                                onSpeak = speechController::speak
+                                onSpeak = speechController::speak,
+                                onShare = { guide ->
+                                    val instructions = buildString {
+                                        appendLine(guide.title)
+                                        appendLine(guide.summary)
+                                        appendLine()
+                                        guide.steps.forEachIndexed { index, step ->
+                                            appendLine("${index + 1}. ${step.title}")
+                                            appendLine(step.instruction)
+                                            step.tip?.let { appendLine("Tip: $it") }
+                                            appendLine()
+                                        }
+                                        guide.safetyNote?.let { appendLine("Let op: $it") }
+                                        appendLine()
+                                        append("Gedeeld vanuit KlaarKompas. De ontvanger kan deze tekst zelf opslaan als persoonlijke handleiding.")
+                                    }
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_SUBJECT, guide.title)
+                                        putExtra(Intent.EXTRA_TEXT, instructions)
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "Deel handleiding"))
+                                }
                             )
                         } else {
                             when (destination) {
+                                Destination.Home -> DashboardScreen(
+                                    guides = guideLibrary,
+                                    favorites = favorites,
+                                    progress = progress,
+                                    completed = completed,
+                                    recentGuideIds = recentGuideIds,
+                                    tasks = plannerTasks,
+                                    largeText = largeText,
+                                    onOpen = openGuide,
+                                    onToggleFavorite = toggleFavorite,
+                                    onNavigate = { destination = it }
+                                )
                                 Destination.Explore -> ExploreScreen(
                                     guides = guideLibrary,
                                     searchQuery = searchQuery,
@@ -288,7 +432,43 @@ private fun KlaarKompasApp() {
                                     largeText = largeText,
                                     onDismissMessage = { completionMessage = null },
                                     onOpen = openGuide,
-                                    onToggleFavorite = toggleFavorite
+                                    onToggleFavorite = toggleFavorite,
+                                    onEdit = { guide -> editingGuideId = guide.id; destination = Destination.Create },
+                                    onDelete = { guide ->
+                                        scope.launch {
+                                            context.dataStore.edit { values ->
+                                                val custom = CustomGuideCodec.decode(values[CustomGuidesKey]).filterNot { it.id == guide.id }
+                                                values[CustomGuidesKey] = CustomGuideCodec.encode(custom)
+                                                values[FavoritesKey] = (values[FavoritesKey] ?: emptySet()) - guide.id
+                                                values[CompletedKey] = (values[CompletedKey] ?: emptySet()) - guide.id
+                                                val currentProgress = parseProgress(values[ProgressKey]).toMutableMap()
+                                                currentProgress.remove(guide.id)
+                                                values[ProgressKey] = serializeProgress(currentProgress)
+                                                values[RecentGuidesKey] = values[RecentGuidesKey].orEmpty().split("|").filter { it.isNotBlank() && it != guide.id }.joinToString("|")
+                                            }
+                                        }
+                                        completionMessage = "‘${guide.title}’ is verwijderd."
+                                    },
+                                    onDuplicate = { guide ->
+                                        val copy = guide.copy(id = "custom-${UUID.randomUUID()}", title = "${guide.title} (kopie)")
+                                        scope.launch {
+                                            context.dataStore.edit { values ->
+                                                val existing = CustomGuideCodec.decode(values[CustomGuidesKey])
+                                                values[CustomGuidesKey] = CustomGuideCodec.encode(existing + copy)
+                                            }
+                                        }
+                                        completionMessage = "Kopie van ‘${guide.title}’ gemaakt."
+                                    }
+                                )
+                                Destination.Planner -> PlannerScreen(
+                                    tasks = plannerTasks,
+                                    largeText = largeText,
+                                    onSaveTask = savePlannerTask,
+                                    onDeleteTask = deletePlannerTask,
+                                    onToggleTask = { task, done ->
+                                        savePlannerTask(task.copy(completed = done, reminderEnabled = if (done) false else task.reminderEnabled))
+                                    },
+                                    onSpeak = speechController::speak
                                 )
                                 Destination.Together -> TogetherScreen(
                                     largeText = largeText,
@@ -296,23 +476,43 @@ private fun KlaarKompasApp() {
                                 )
                                 Destination.Create -> CreateGuideScreen(
                                     largeText = largeText,
-                                    onCancel = { destination = Destination.Explore },
+                                    initialGuide = editingGuideId?.let { id -> guideLibrary.firstOrNull { it.id == id } },
+                                    onCancel = { editingGuideId = null; destination = Destination.Saved },
                                     onSave = { guide ->
                                         scope.launch {
                                             context.dataStore.edit { values ->
                                                 val existing = CustomGuideCodec.decode(values[CustomGuidesKey])
-                                                values[CustomGuidesKey] = CustomGuideCodec.encode(existing + guide)
+                                                values[CustomGuidesKey] = CustomGuideCodec.encode(existing.filterNot { it.id == guide.id } + guide)
                                             }
                                         }
-                                        completionMessage = "Je eigen handleiding is opgeslagen en bewaard bij Mijn gidsen."
+                                        completionMessage = if (editingGuideId == null) "Je handleiding is opgeslagen bij Mijn gidsen." else "Je handleiding is bijgewerkt."
+                                        editingGuideId = null
                                         destination = Destination.Saved
                                     }
                                 )
+                                Destination.More -> MoreScreen(
+                                    largeText = largeText,
+                                    onNavigate = { destination = it }
+                                )
                                 Destination.Settings -> SettingsScreen(
                                     largeText = largeText,
+                                    highContrast = highContrast,
+                                    simpleLanguage = simpleLanguage,
+                                    autoRead = autoReadSteps,
                                     onLargeTextChange = { enabled ->
                                         scope.launch { context.dataStore.edit { it[LargeTextKey] = enabled } }
-                                    }
+                                    },
+                                    onHighContrastChange = { enabled ->
+                                        scope.launch { context.dataStore.edit { it[HighContrastKey] = enabled } }
+                                    },
+                                    onSimpleLanguageChange = { enabled ->
+                                        scope.launch { context.dataStore.edit { it[SimpleLanguageKey] = enabled } }
+                                    },
+                                    onAutoReadChange = { enabled ->
+                                        scope.launch { context.dataStore.edit { it[AutoReadKey] = enabled } }
+                                    },
+                                    onBackup = { backupSaveLauncher.launch("KlaarKompas-back-up-${LocalDate.now()}.zip") },
+                                    onRestore = { backupOpenLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }
                                 )
                             }
                         }
@@ -321,6 +521,7 @@ private fun KlaarKompasApp() {
                         BottomNavigation(selected = destination, onSelect = {
                             destination = it
                             completionMessage = null
+                            editingGuideId = null
                         })
                     }
                 }
@@ -378,7 +579,7 @@ private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Uni
             Text("KlaarKompas", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
         Spacer(Modifier.height(8.dp))
-        Destination.entries.forEach { item ->
+        Destination.entries.filterNot { it == Destination.More }.forEach { item ->
             val active = item == selected
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
@@ -399,13 +600,15 @@ private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Uni
 
 @Composable
 private fun BottomNavigation(selected: Destination, onSelect: (Destination) -> Unit) {
+    val phoneItems = listOf(Destination.Home, Destination.Explore, Destination.Saved, Destination.Planner, Destination.More)
+    val activeItem = if (selected == Destination.Together || selected == Destination.Create || selected == Destination.Settings) Destination.More else selected
     NavigationBar(containerColor = Panel, windowInsets = WindowInsets.navigationBars) {
-        Destination.entries.forEach { item ->
+        phoneItems.forEach { item ->
             NavigationBarItem(
-                selected = item == selected,
+                selected = item == activeItem,
                 onClick = { onSelect(item) },
-                icon = { Icon(item.icon, contentDescription = null) },
-                label = { Text(item.label) }
+                icon = { Icon(item.icon, contentDescription = item.label) },
+                label = { Text(item.label, maxLines = 1) }
             )
         }
     }
@@ -672,12 +875,17 @@ private fun SavedScreen(
     largeText: Boolean,
     onDismissMessage: () -> Unit,
     onOpen: (String) -> Unit,
-    onToggleFavorite: (String) -> Unit
+    onToggleFavorite: (String) -> Unit,
+    onEdit: (Guide) -> Unit,
+    onDelete: (Guide) -> Unit,
+    onDuplicate: (Guide) -> Unit
 ) {
+    var pendingDelete by rememberSaveable { mutableStateOf<Guide?>(null) }
     val savedGuides = guides.filter { guide ->
-        guide.id in favorites || (guide.id in progress.keys && guide.id !in completed)
+        guide.id.startsWith("custom-") || guide.id in favorites ||
+            (guide.id in progress.keys && guide.id !in completed)
     }
-    Column(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
@@ -686,7 +894,7 @@ private fun SavedScreen(
             item {
                 Text("Mijn gidsen", fontSize = if (largeText) 28.sp else 24.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Spacer(Modifier.height(4.dp))
-                Text("Bewaar wat je vaker gebruikt en hervat je voortgang.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
+                Text("Je eigen handleidingen, favorieten en taken die je wilt hervatten.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
             }
             if (completionMessage != null) {
                 item {
@@ -700,21 +908,63 @@ private fun SavedScreen(
                 }
             }
             if (savedGuides.isEmpty()) {
-                item { EmptyState("Je gidsen staan hier", "Bewaar een handleiding met het bladwijzer-icoon of start er een om later verder te gaan.", Icons.Outlined.BookmarkBorder) }
+                item { EmptyState("Je gidsen staan hier", "Bewaar een handleiding als favoriet, maak zelf een gids of start er een om later verder te gaan.", Icons.Outlined.BookmarkBorder) }
             } else {
-                item { SectionHeading("Bewaard en bezig", "Je favorieten en handleidingen met voortgang.") }
+                item { SectionHeading("Bewaard en zelfgemaakt", "Eigen gidsen kun je aanpassen, kopiëren of verwijderen.") }
                 items(savedGuides, key = { "saved-${it.id}" }) { guide ->
-                    GuideCard(
-                        guide = guide,
-                        isFavorite = guide.id in favorites,
-                        progressIndex = progress[guide.id],
-                        isCompleted = guide.id in completed,
-                        largeText = largeText,
-                        onOpen = { onOpen(guide.id) },
-                        onToggleFavorite = { onToggleFavorite(guide.id) }
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        GuideCard(
+                            guide = guide,
+                            isFavorite = guide.id in favorites,
+                            progressIndex = progress[guide.id],
+                            isCompleted = guide.id in completed,
+                            largeText = largeText,
+                            onOpen = { onOpen(guide.id) },
+                            onToggleFavorite = { onToggleFavorite(guide.id) }
+                        )
+                        if (guide.id.startsWith("custom-")) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(start = 8.dp),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = { onEdit(guide) }) {
+                                    Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(17.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Bewerken")
+                                }
+                                TextButton(onClick = { onDuplicate(guide) }) {
+                                    Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(17.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Kopiëren")
+                                }
+                                IconButton(onClick = { pendingDelete = guide }, modifier = Modifier.semantics { contentDescription = "Verwijder ${guide.title}" }) {
+                                    Icon(Icons.Outlined.Delete, contentDescription = null, tint = Color(0xFFFF887F))
+                                }
+                            }
+                        }
+                    }
                 }
             }
+            item { Spacer(Modifier.height(8.dp)) }
+        }
+        val selectedForDelete = pendingDelete
+        if (selectedForDelete != null) {
+            AlertDialog(
+                onDismissRequest = { pendingDelete = null },
+                title = { Text("Handleiding verwijderen?") },
+                text = { Text("‘${selectedForDelete.title}’ wordt van dit apparaat verwijderd. Maak eerst een back-up als je hem wilt bewaren.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        onDelete(selectedForDelete)
+                        pendingDelete = null
+                    }) { Text("Verwijderen") }
+                },
+                dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Annuleren") } },
+                containerColor = Panel,
+                titleContentColor = Ink,
+                textContentColor = Muted
+            )
         }
     }
 }
@@ -724,38 +974,121 @@ private fun SavedScreen(
 @Composable
 private fun CreateGuideScreen(
     largeText: Boolean,
+    initialGuide: Guide?,
     onCancel: () -> Unit,
     onSave: (Guide) -> Unit
 ) {
-    var title by rememberSaveable { mutableStateOf("") }
-    var summary by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf("Leren & maken") }
-    var minutesText by rememberSaveable { mutableStateOf("10") }
-    var stepsText by rememberSaveable { mutableStateOf("") }
-    val parsedSteps = stepsText.lineSequence().map { it.trim() }.filter { it.isNotBlank() }
-        .mapIndexed { index, line ->
-            val parts = line.split(":", limit = 2)
-            if (parts.size == 2) GuideStep(parts[0].trim().ifBlank { "Stap ${index + 1}" }, parts[1].trim())
-            else GuideStep("Stap ${index + 1}", line)
-        }.filter { it.instruction.isNotBlank() }.take(20).toList()
+    val context = LocalContext.current
+    var title by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.title.orEmpty()) }
+    var summary by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.summary.orEmpty()) }
+    var category by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.category ?: "Leren & maken") }
+    var minutesText by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.minutes?.toString() ?: "10") }
+    var safetyNote by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.safetyNote.orEmpty()) }
+    var stepsText by rememberSaveable(initialGuide?.id) {
+        mutableStateOf(initialGuide?.steps?.joinToString("\n") { step ->
+            "${step.title}: ${step.instruction}" + (step.tip?.let { " | Tip: $it" } ?: "")
+        }.orEmpty())
+    }
+    var coverImageUri by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.coverImageUri) }
+    var stepPhotosText by rememberSaveable(initialGuide?.id) {
+        mutableStateOf(initialGuide?.steps?.joinToString(",") { it.imageUri.orEmpty() }.orEmpty())
+    }
+    var photoTarget by rememberSaveable(initialGuide?.id) { mutableStateOf("cover") }
+    var selectedStepForPhoto by rememberSaveable(initialGuide?.id) { mutableIntStateOf(0) }
+    var voiceTarget by rememberSaveable(initialGuide?.id) { mutableStateOf("steps") }
+
+    val normalizedLines = stepsText.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.take(20).toList()
+    val photoUris = stepPhotosText.split(",")
+    val parsedSteps = normalizedLines.mapIndexed { index, line ->
+        val tipParts = line.split("| Tip:", limit = 2)
+        val body = tipParts[0]
+        val parts = body.split(":", limit = 2)
+        val stepTitle = if (parts.size == 2) parts[0].trim().ifBlank { "Stap ${index + 1}" } else "Stap ${index + 1}"
+        val instruction = if (parts.size == 2) parts[1].trim() else body
+        GuideStep(
+            title = stepTitle,
+            instruction = instruction,
+            tip = tipParts.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() },
+            imageUri = photoUris.getOrNull(index)?.takeIf { it.isNotBlank() }
+        )
+    }.filter { it.instruction.isNotBlank() }
+
+    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty()
+            when (voiceTarget) {
+                "title" -> if (spoken.isNotBlank()) title = spoken.take(90)
+                "summary" -> if (spoken.isNotBlank()) summary = spoken.take(220)
+                "safety" -> if (spoken.isNotBlank()) safetyNote = spoken.take(600)
+                else -> if (spoken.isNotBlank()) {
+                    stepsText = (stepsText + if (stepsText.isBlank()) "" else "\n" + spoken).lineSequence().take(20).joinToString("\n").take(12000)
+                }
+            }
+        }
+    }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { sourceUri ->
+        if (sourceUri != null) {
+            val saved = copyGuideImage(context, sourceUri)
+            if (saved != null) {
+                if (photoTarget == "cover") {
+                    coverImageUri = saved
+                } else {
+                    val index = photoTarget.removePrefix("step:").toIntOrNull() ?: 0
+                    val photos = stepPhotosText.split(",").toMutableList()
+                    while (photos.size <= index) photos.add("")
+                    photos[index] = saved
+                    stepPhotosText = photos.joinToString(",")
+                    selectedStepForPhoto = index
+                }
+            } else {
+                Toast.makeText(context, "De foto kon niet worden opgeslagen. Kies een afbeelding kleiner dan 10 MB.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    fun startDictation(target: String) {
+        voiceTarget = target
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "nl-NL")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Spreek rustig in het Nederlands")
+        }
+        if (intent.resolveActivity(context.packageManager) != null) {
+            runCatching { speechLauncher.launch(intent) }.onFailure {
+                Toast.makeText(context, "Spraakinvoer is niet beschikbaar op dit apparaat.", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            Toast.makeText(context, "Schakel een Android-spraakdienst in om tekst in te spreken.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     Column(
         Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconButton(onClick = onCancel, modifier = Modifier.semantics { contentDescription = "Gids maken annuleren" }) {
+            IconButton(onClick = onCancel, modifier = Modifier.semantics { contentDescription = "Gidseditor sluiten" }) {
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
             }
             Column(Modifier.weight(1f)) {
-                Text("Maak je eigen handleiding", fontSize = if (largeText) 27.sp else 23.sp, fontWeight = FontWeight.Bold, color = Ink)
-                Text("Schrijf het op in kleine, duidelijke stappen.", color = Muted)
+                Text(if (initialGuide == null) "Maak je eigen handleiding" else "Handleiding bewerken", fontSize = if (largeText) 27.sp else 23.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Text("Typ of spreek de stappen in en voeg foto's toe.", color = Muted)
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it.take(90) }, modifier = Modifier.fillMaxWidth(), label = { Text("Titel van je handleiding") }, placeholder = { Text("Bijv. Mijn tablet klaarmaken") }, singleLine = true)
-                OutlinedTextField(value = summary, onValueChange = { summary = it.take(220) }, modifier = Modifier.fillMaxWidth(), label = { Text("Korte uitleg (optioneel)") }, minLines = 2, maxLines = 4)
+                TextButton(onClick = { startDictation("title") }) {
+                    Icon(Icons.Outlined.Mic, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Titel inspreken")
+                }
+                OutlinedTextField(value = summary, onValueChange = { summary = it.take(220) }, modifier = Modifier.fillMaxWidth(), label = { Text("Korte uitleg") }, minLines = 2, maxLines = 4)
+                TextButton(onClick = { startDictation("summary") }) {
+                    Icon(Icons.Outlined.Mic, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Uitleg inspreken")
+                }
                 OutlinedTextField(value = minutesText, onValueChange = { minutesText = it.filter(Char::isDigit).take(3) }, modifier = Modifier.fillMaxWidth(), label = { Text("Geschatte tijd in minuten") }, singleLine = true)
                 Text("Kies een categorie", color = Ink, fontWeight = FontWeight.SemiBold)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -763,29 +1096,80 @@ private fun CreateGuideScreen(
                         FilterChip(selected = category == item, onClick = { category = item }, label = { Text(item) })
                     }
                 }
+                Text("Omslagfoto", color = Ink, fontWeight = FontWeight.SemiBold)
+                if (coverImageUri != null) GuidePhoto(coverImageUri, Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(14.dp)))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { photoTarget = "cover"; photoPicker.launch(arrayOf("image/*")) }) {
+                        Text(if (coverImageUri == null) "Omslagfoto kiezen" else "Omslagfoto wijzigen")
+                    }
+                    if (coverImageUri != null) TextButton(onClick = { coverImageUri = null }) { Text("Verwijderen") }
+                }
                 OutlinedTextField(
                     value = stepsText,
                     onValueChange = { stepsText = it.lineSequence().take(20).joinToString("\n").take(12000) },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Stappen (maximaal 20)") },
-                    placeholder = { Text("Eén stap per regel. Gebruik eventueel ‘Titel: uitleg’.") },
+                    placeholder = { Text("Titel: uitleg | Tip: extra uitleg") },
                     minLines = 5,
                     maxLines = 12,
                     supportingText = { Text("${parsedSteps.size}/20 stappen") }
                 )
+                TextButton(onClick = { startDictation("steps") }) {
+                    Icon(Icons.Outlined.Mic, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Volgende stap inspreken")
+                }
+                Text("Foto toevoegen aan stap", color = Ink, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    IconButton(onClick = { selectedStepForPhoto = (selectedStepForPhoto - 1).coerceAtLeast(0) }, enabled = selectedStepForPhoto > 0) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Vorige stap")
+                    }
+                    Text("Stap ${selectedStepForPhoto + 1}", modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                    IconButton(onClick = { selectedStepForPhoto = (selectedStepForPhoto + 1).coerceAtMost((parsedSteps.size - 1).coerceAtLeast(0)) }, enabled = selectedStepForPhoto < parsedSteps.lastIndex) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "Volgende stap")
+                    }
+                }
+                val selectedPhoto = photoUris.getOrNull(selectedStepForPhoto)?.takeIf { it.isNotBlank() }
+                if (selectedPhoto != null) GuidePhoto(selectedPhoto, Modifier.fillMaxWidth().height(130.dp).clip(RoundedCornerShape(14.dp)))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { photoTarget = "step:$selectedStepForPhoto"; photoPicker.launch(arrayOf("image/*")) },
+                        enabled = parsedSteps.isNotEmpty()
+                    ) { Text("Foto kiezen") }
+                    if (selectedPhoto != null) TextButton(onClick = {
+                        val values = stepPhotosText.split(",").toMutableList()
+                        if (selectedStepForPhoto < values.size) values[selectedStepForPhoto] = ""
+                        stepPhotosText = values.joinToString(",")
+                    }) { Text("Foto verwijderen") }
+                }
+                OutlinedTextField(
+                    value = safetyNote,
+                    onValueChange = { safetyNote = it.take(600) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Waarschuwing / let op (optioneel)") },
+                    minLines = 2,
+                    maxLines = 4
+                )
+                TextButton(onClick = { startDictation("safety") }) {
+                    Icon(Icons.Outlined.Mic, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Waarschuwing inspreken")
+                }
             }
         }
-        Text("Tip: gebruik één handeling per regel. Je kunt je eigen gids later offline openen.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
+        Text("Tips zijn optioneel: gebruik ‘ | Tip: ’ achter een stap om extra uitleg toe te voegen.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
         Button(
             onClick = {
                 onSave(Guide(
-                    id = "custom-${UUID.randomUUID()}",
+                    id = initialGuide?.id ?: "custom-${UUID.randomUUID()}",
                     title = title.trim(),
                     summary = summary.trim().ifBlank { "Een persoonlijke handleiding." },
                     category = category,
                     minutes = minutesText.toIntOrNull()?.coerceIn(1, 600) ?: 10,
                     tags = listOf("mijn gids", "persoonlijk", category.lowercase(Locale.ROOT)),
-                    steps = parsedSteps
+                    steps = parsedSteps,
+                    safetyNote = safetyNote.trim().takeIf { it.isNotBlank() },
+                    coverImageUri = coverImageUri
                 ))
             },
             enabled = title.isNotBlank() && parsedSteps.isNotEmpty(),
@@ -795,53 +1179,425 @@ private fun CreateGuideScreen(
         ) {
             Icon(Icons.Outlined.CheckCircle, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Handleiding opslaan")
+            Text(if (initialGuide == null) "Handleiding opslaan" else "Wijzigingen opslaan")
         }
         TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Annuleren") }
     }
 }
 
 @Composable
-private fun SettingsScreen(largeText: Boolean, onLargeTextChange: (Boolean) -> Unit) {
+private fun SettingsScreen(
+    largeText: Boolean,
+    highContrast: Boolean,
+    simpleLanguage: Boolean,
+    autoRead: Boolean,
+    onLargeTextChange: (Boolean) -> Unit,
+    onHighContrastChange: (Boolean) -> Unit,
+    onSimpleLanguageChange: (Boolean) -> Unit,
+    onAutoReadChange: (Boolean) -> Unit,
+    onBackup: () -> Unit,
+    onRestore: () -> Unit
+) {
     val context = LocalContext.current
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("Instellingen", fontSize = if (largeText) 28.sp else 24.sp, fontWeight = FontWeight.Bold, color = Ink)
-        Text("Maak KlaarKompas passend bij jouw manier van werken.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
+        Text("Pas tekst, uitleg, geluid en je persoonlijke gegevens aan.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
+        SettingSwitchCard("Grotere tekst", "Ruimere tekst in handleidingen en overzichten.", largeText, onLargeTextChange)
+        SettingSwitchCard("Hoog contrast", "Lichtere accenten en opvallendere randen voor betere zichtbaarheid.", highContrast, onHighContrastChange)
+        SettingSwitchCard("Eenvoudige uitleg", "Kies kortere, duidelijkere teksten bij hulp en begeleiding.", simpleLanguage, onSimpleLanguageChange)
+        SettingSwitchCard("Stappen automatisch voorlezen", "Lees iedere nieuwe stap hardop zodra je die opent.", autoRead, onAutoReadChange)
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Grotere tekst", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
-                    Text("Gebruik ruimere tekst in de handleidingen en overzichten.", color = Muted, fontSize = if (largeText) 16.sp else 13.sp)
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Outlined.Backup, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Back-up en terugzetten", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
+                        Text("Bewaar gidsen, favorieten, dagplanning, voortgang en lokale foto's in één ZIP-bestand. Gebruik hetzelfde bestand om gegevens op een ander toestel terug te zetten.", color = Muted, fontSize = if (largeText) 16.sp else 13.sp)
+                    }
                 }
-                Switch(checked = largeText, onCheckedChange = onLargeTextChange, modifier = Modifier.semantics { contentDescription = "Grotere tekst inschakelen" })
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = onBackup, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.Backup, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Back-up maken")
+                    }
+                    OutlinedButton(onClick = onRestore, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.BookmarkBorder, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Terugzetten")
+                    }
+                }
+                Text("Terugzetten vervangt de huidige gegevens door de back-up. Bewaar eerst een back-up van de huidige gegevens als je ze nog nodig hebt.", color = Gold, fontSize = 12.sp)
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Offline en privacy", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
-                Text("Gidsen, favorieten, voortgang en eigen gidsen worden lokaal bewaard. Deze versie heeft geen account of eigen synchronisatie. Bij voorlezen gebruikt Android de tekst-naar-spraakdienst die op jouw toestel is ingesteld.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
+                Text("Gidsen, favorieten, voortgang, foto's en je dagplanner worden lokaal bewaard. Deze versie heeft geen account, eigen cloud of online synchronisatie. Spraakherkenning gebruikt de Android-spraakdienst van je toestel. Herinneringen zijn lokale meldingen.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
                 TextButton(
                     onClick = {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PrivacyPolicyUrl))
-                        if (intent.resolveActivity(context.packageManager) != null) {
-                            context.startActivity(intent)
-                        }
+                        if (intent.resolveActivity(context.packageManager) != null) context.startActivity(intent)
                     },
                     modifier = Modifier.semantics { contentDescription = "Lees de privacyverklaring" }
-                ) {
-                    Text("Lees de privacyverklaring", fontSize = if (largeText) 16.sp else 14.sp)
-                }
+                ) { Text("Lees de privacyverklaring", fontSize = if (largeText) 16.sp else 14.sp) }
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Mint), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Kleine stappen. Echte vooruitgang.", fontWeight = FontWeight.Bold, color = Ink, fontSize = if (largeText) 19.sp else 16.sp)
-                Text("KlaarKompas is een startversie. Controleer belangrijke veiligheids-, juridische of financiële informatie altijd bij een passende, betrouwbare bron.", color = Ink, fontSize = if (largeText) 16.sp else 13.sp)
+                Text("KlaarKompas werkt offline. Controleer belangrijke veiligheids-, juridische of financiële informatie altijd bij een passende, betrouwbare bron.", color = Ink, fontSize = if (largeText) 16.sp else 13.sp)
             }
+        }
+    }
+}
+
+@Composable
+private fun SettingSwitchCard(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Border)) {
+        Row(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, color = Ink, fontWeight = FontWeight.SemiBold)
+                Text(description, color = Muted, fontSize = 13.sp)
+            }
+            Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.semantics { contentDescription = title })
+        }
+    }
+}
+
+@Composable
+private fun DashboardScreen(
+    guides: List<Guide>,
+    favorites: Set<String>,
+    progress: Map<String, Int>,
+    completed: Set<String>,
+    recentGuideIds: List<String>,
+    tasks: List<PlannerTask>,
+    largeText: Boolean,
+    onOpen: (String) -> Unit,
+    onToggleFavorite: (String) -> Unit,
+    onNavigate: (Destination) -> Unit
+) {
+    val today = LocalDate.now().toString()
+    val todayTasks = tasks.filter { it.date == today }
+    val completedToday = todayTasks.count { it.completed }
+    val todaySummary = when {
+        todayTasks.isEmpty() -> "Nog geen taken gepland"
+        completedToday == todayTasks.size -> "$completedToday van ${todayTasks.size} taken afgerond"
+        else -> "${todayTasks.size} geplande taken"
+    }
+    val recentGuides = recentGuideIds.mapNotNull { id -> guides.firstOrNull { it.id == id } }
+    val favoriteGuides = guides.filter { it.id in favorites }.take(4)
+    val inProgress = guides.filter { it.id in progress.keys && it.id !in completed }.take(3)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Text("Jouw KlaarKompas", color = Ink, fontSize = if (largeText) 30.sp else 26.sp, fontWeight = FontWeight.Bold)
+            Text("Goed dat je er bent. Wat wil je vandaag doen?", color = Muted, fontSize = if (largeText) 18.sp else 14.sp)
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                border = BorderStroke(1.dp, Border)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Mint), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.Home, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("Een stap tegelijk", color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                            Text("Je gidsen en planning staan hier bij elkaar.", color = Muted, fontSize = 13.sp)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        Button(onClick = { onNavigate(Destination.Explore) }, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Outlined.Explore, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Ontdekken")
+                        }
+                        OutlinedButton(onClick = { onNavigate(Destination.Planner) }, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Outlined.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Dagplanner")
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = Teal, modifier = Modifier.size(26.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Vandaag", color = Ink, fontWeight = FontWeight.Bold)
+                        Text(todaySummary, color = Muted, fontSize = 13.sp)
+                    }
+                    TextButton(onClick = { onNavigate(Destination.Planner) }) { Text("Openen") }
+                }
+            }
+        }
+        if (inProgress.isNotEmpty()) {
+            item { SectionHeading("Ga verder", "Je voortgang is op dit apparaat bewaard.") }
+            items(inProgress, key = { "dash-progress-${it.id}" }) { guide ->
+                GuideCard(guide, guide.id in favorites, progress[guide.id], guide.id in completed, largeText, { onOpen(guide.id) }, { onToggleFavorite(guide.id) })
+            }
+        }
+        if (recentGuides.isNotEmpty()) {
+            item { SectionHeading("Recent geopend", "Pak een gids er snel weer bij.") }
+            items(recentGuides.take(4), key = { "recent-${it.id}" }) { guide ->
+                GuideCard(guide, guide.id in favorites, progress[guide.id], guide.id in completed, largeText, { onOpen(guide.id) }, { onToggleFavorite(guide.id) })
+            }
+        }
+        if (favoriteGuides.isNotEmpty()) {
+            item { SectionHeading("Jouw favorieten", "Gidsen die je vaker gebruikt.") }
+            items(favoriteGuides, key = { "dash-fav-${it.id}" }) { guide ->
+                GuideCard(guide, true, progress[guide.id], guide.id in completed, largeText, { onOpen(guide.id) }, { onToggleFavorite(guide.id) })
+            }
+        }
+        if (recentGuides.isEmpty() && favoriteGuides.isEmpty() && inProgress.isEmpty()) {
+            item {
+                EmptyState("Je startscherm vult zich vanzelf", "Open een handleiding of bewaar een favoriet. Je vindt die daarna hier terug.", Icons.Outlined.Home)
+            }
+        }
+        item { Spacer(Modifier.height(8.dp)) }
+    }
+}
+
+@Composable
+private fun PlannerScreen(
+    tasks: List<PlannerTask>,
+    largeText: Boolean,
+    onSaveTask: (PlannerTask) -> Unit,
+    onDeleteTask: (PlannerTask) -> Unit,
+    onToggleTask: (PlannerTask, Boolean) -> Unit,
+    onSpeak: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var newTitle by rememberSaveable { mutableStateOf("") }
+    var newTime by rememberSaveable { mutableStateOf("") }
+    var addReminder by rememberSaveable { mutableStateOf(false) }
+    var pendingReminderTask by remember { mutableStateOf<PlannerTask?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val task = pendingReminderTask
+        if (task != null) {
+            if (granted) onSaveTask(task)
+            else {
+                onSaveTask(task.copy(reminderEnabled = false))
+                Toast.makeText(context, "De taak is opgeslagen zonder melding. Je kunt meldingen later in Android inschakelen.", Toast.LENGTH_LONG).show()
+            }
+            pendingReminderTask = null
+        }
+    }
+    val dayTasks = tasks.filter { it.date == selectedDate }.sortedWith(compareBy<PlannerTask> { it.time.isBlank() }.thenBy { it.time }.thenBy { it.title })
+
+    fun submitTask() {
+        if (newTitle.isBlank()) {
+            Toast.makeText(context, "Vul eerst een taaknaam in.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val time = newTime.trim()
+        if (time.isNotBlank() && runCatching { LocalTime.parse(time) }.isFailure) {
+            Toast.makeText(context, "Gebruik een tijd in de vorm 09:30.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (addReminder && time.isBlank()) {
+            Toast.makeText(context, "Vul een tijd in om een herinnering te plannen.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val task = PlannerTask(
+            id = UUID.randomUUID().toString(),
+            title = newTitle.trim().take(160),
+            date = selectedDate,
+            time = time,
+            completed = false,
+            reminderEnabled = addReminder
+        )
+        newTitle = ""
+        if (task.reminderEnabled && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingReminderTask = task
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onSaveTask(task)
+        }
+    }
+
+    Column(Modifier.fillMaxSize().imePadding().padding(horizontal = 18.dp, vertical = 12.dp)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Text("Mijn dagplanner", color = Ink, fontSize = if (largeText) 29.sp else 25.sp, fontWeight = FontWeight.Bold)
+                Text("Plan je taken, vink af wat klaar is en stel optioneel een melding in.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
+            }
+            item {
+                val today = LocalDate.now()
+                val chosenDate = runCatching { LocalDate.parse(selectedDate) }.getOrDefault(today)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = selectedDate == today.toString(), onClick = { selectedDate = today.toString() }, label = { Text("Vandaag") })
+                    FilterChip(selected = selectedDate == today.plusDays(1).toString(), onClick = { selectedDate = today.plusDays(1).toString() }, label = { Text("Morgen") })
+                    Spacer(Modifier.weight(1f))
+                    OutlinedButton(onClick = {
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, day -> selectedDate = LocalDate.of(year, month + 1, day).toString() },
+                            chosenDate.year,
+                            chosenDate.monthValue - 1,
+                            chosenDate.dayOfMonth
+                        ).show()
+                    }) { Text(chosenDate.toString()) }
+                }
+            }
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Border)) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Taak toevoegen", color = Ink, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        OutlinedTextField(
+                            value = newTitle,
+                            onValueChange = { newTitle = it.take(160) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Wat wil je doen?") },
+                            placeholder = { Text("Bijv. boodschappen doen") },
+                            singleLine = true
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = newTime,
+                                onValueChange = { newTime = it.filter { c -> c.isDigit() || c == ':' }.take(5) },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Tijd (optioneel)") },
+                                placeholder = { Text("09:30") },
+                                singleLine = true
+                            )
+                            Button(onClick = { onSpeak("Welke taak wil je plannen?") }) {
+                                Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = "Lees taakplanning voor")
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Outlined.Notifications, contentDescription = null, tint = Teal)
+                            Column(Modifier.weight(1f)) {
+                                Text("Herinnering instellen", color = Ink, fontWeight = FontWeight.Medium)
+                                Text("Een melding op de gekozen datum en tijd.", color = Muted, fontSize = 12.sp)
+                            }
+                            Switch(checked = addReminder, onCheckedChange = { addReminder = it })
+                        }
+                        Button(onClick = { submitTask() }, modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                            Icon(Icons.Outlined.Add, contentDescription = null)
+                            Spacer(Modifier.width(7.dp))
+                            Text("Taak toevoegen")
+                        }
+                    }
+                }
+            }
+            item { SectionHeading("Taken voor deze dag", "${dayTasks.count { it.completed }} van ${dayTasks.size} afgerond") }
+            if (dayTasks.isEmpty()) {
+                item { EmptyState("Nog geen taken gepland", "Voeg hierboven een taak toe. De planning blijft lokaal op dit apparaat.", Icons.Outlined.CalendarMonth) }
+            } else {
+                items(dayTasks, key = { "planner-${it.id}" }) { task ->
+                    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Border)) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Checkbox(checked = task.completed, onCheckedChange = { onToggleTask(task, it) })
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(task.title, color = Ink, fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 18.sp else 15.sp)
+                                val subtitle = buildString {
+                                    if (task.time.isNotBlank()) append(task.time)
+                                    if (task.reminderEnabled) {
+                                        if (isNotEmpty()) append(" • ")
+                                        append("herinnering aan")
+                                    }
+                                    if (isEmpty()) append("Geen tijd ingesteld")
+                                }
+                                Text(subtitle, color = if (task.reminderEnabled) Teal else Muted, fontSize = 12.sp)
+                            }
+                            IconButton(onClick = { onDeleteTask(task) }, modifier = Modifier.semantics { contentDescription = "Verwijder taak ${task.title}" }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = null, tint = Muted)
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Text("Herinneringen gebruiken Android-meldingen. Zet meldingen voor KlaarKompas aan in de Android-instellingen als je geen melding ontvangt.", color = Muted, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoreScreen(largeText: Boolean, onNavigate: (Destination) -> Unit) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Meer functies", color = Ink, fontSize = if (largeText) 29.sp else 25.sp, fontWeight = FontWeight.Bold)
+        Text("Open extra hulpmiddelen en instellingen.", color = Muted)
+        MoreNavigationCard("Samen-doen", "Maak samen een moeilijke taak eenvoudiger.", Icons.Outlined.Lightbulb) { onNavigate(Destination.Together) }
+        MoreNavigationCard("Gids maken", "Schrijf een eigen handleiding, spreek tekst in of voeg foto's toe.", Icons.Outlined.Add) { onNavigate(Destination.Create) }
+        MoreNavigationCard("Instellingen en back-up", "Pas toegankelijkheid aan en bewaar je gegevens.", Icons.Outlined.Settings) { onNavigate(Destination.Settings) }
+    }
+}
+
+@Composable
+private fun MoreNavigationCard(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(1.dp, Border),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(45.dp).clip(RoundedCornerShape(13.dp)).background(Mint), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = Teal)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, color = Ink, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, color = Muted, fontSize = 13.sp)
+            }
+            Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null, tint = Teal)
+        }
+    }
+}
+
+@Composable
+private fun GuidePhoto(reference: String?, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = reference) {
+        value = withContext(Dispatchers.IO) {
+            runCatching { guideImageFile(context, reference)?.let { BitmapFactory.decodeFile(it.absolutePath) } }.getOrNull()
+        }
+    }
+    if (bitmap != null) {
+        Image(bitmap!!.asImageBitmap(), contentDescription = "Foto bij deze handleiding", modifier = modifier, contentScale = ContentScale.Crop)
+    } else {
+        Box(modifier.background(PanelElevated), contentAlignment = Alignment.Center) {
+            Icon(Icons.Outlined.Explore, contentDescription = "Geen foto beschikbaar", tint = Teal)
         }
     }
 }
@@ -872,8 +1628,12 @@ private fun GuideCard(
     ) {
         Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Mint), contentAlignment = Alignment.Center) {
-                    Icon(categoryIcon(guide.category), contentDescription = null, tint = Teal, modifier = Modifier.size(22.dp))
+                if (guide.coverImageUri != null) {
+                    GuidePhoto(guide.coverImageUri, Modifier.size(72.dp).clip(RoundedCornerShape(13.dp)))
+                } else {
+                    Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Mint), contentAlignment = Alignment.Center) {
+                        Icon(categoryIcon(guide.category), contentDescription = null, tint = Teal, modifier = Modifier.size(22.dp))
+                    }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(guide.title, fontSize = if (largeText) 19.sp else 16.sp, fontWeight = FontWeight.SemiBold, color = Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -938,10 +1698,13 @@ private fun GuidePlayer(
     initialStep: Int,
     largeText: Boolean,
     tabletLayout: Boolean,
+    simpleLanguage: Boolean,
+    autoRead: Boolean,
     onExit: () -> Unit,
     onProgress: (String, Int) -> Unit,
     onComplete: (String) -> Unit,
-    onSpeak: (String) -> Unit
+    onSpeak: (String) -> Unit,
+    onShare: (Guide) -> Unit
 ) {
     var stepIndex by rememberSaveable(guide.id) { mutableIntStateOf(initialStep.coerceIn(0, guide.steps.lastIndex)) }
     var showStuckHelp by rememberSaveable(guide.id) { mutableStateOf(false) }
@@ -949,6 +1712,9 @@ private fun GuidePlayer(
         if (stepIndex == 0 && initialStep > 0) stepIndex = initialStep.coerceIn(0, guide.steps.lastIndex)
     }
     val step = guide.steps[stepIndex]
+    LaunchedEffect(guide.id, stepIndex, autoRead) {
+        if (autoRead) onSpeak("${step.title}. ${step.instruction}")
+    }
     val progressFraction = (stepIndex + 1).toFloat() / guide.steps.size
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -966,6 +1732,9 @@ private fun GuidePlayer(
             IconButton(onClick = { onSpeak("${guide.title}. Stap ${stepIndex + 1}. ${step.title}. ${step.instruction}") }, modifier = Modifier.semantics { contentDescription = "Lees deze stap voor" }) {
                 Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null, tint = Teal)
             }
+            IconButton(onClick = { onShare(guide) }, modifier = Modifier.semantics { contentDescription = "Deel deze handleiding" }) {
+                Icon(Icons.Outlined.Share, contentDescription = null, tint = Teal)
+            }
         }
         HorizontalDivider(color = Border)
         Column(
@@ -981,14 +1750,14 @@ private fun GuidePlayer(
             )
             if (tabletLayout) {
                 Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.Top) {
-                    StepCard(step.title, step.instruction, step.tip, largeText, Modifier.weight(1.6f), onSpeak = { onSpeak("${step.title}. ${step.instruction}") })
+                    StepCard(step.title, step.instruction, step.tip, step.imageUri, largeText, Modifier.weight(1.6f), onSpeak = { onSpeak("${step.title}. ${step.instruction}") })
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         MaterialsCard(guide.steps.size, guide.minutes, largeText)
                         guide.safetyNote?.let { SafetyCard(it, largeText) }
                     }
                 }
             } else {
-                StepCard(step.title, step.instruction, step.tip, largeText, Modifier.fillMaxWidth(), onSpeak = { onSpeak("${step.title}. ${step.instruction}") })
+                StepCard(step.title, step.instruction, step.tip, step.imageUri, largeText, Modifier.fillMaxWidth(), onSpeak = { onSpeak("${step.title}. ${step.instruction}") })
                 MaterialsCard(guide.steps.size, guide.minutes, largeText)
                 guide.safetyNote?.let { SafetyCard(it, largeText) }
             }
@@ -996,17 +1765,22 @@ private fun GuidePlayer(
                 Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Outlined.Lightbulb, contentDescription = null, tint = Gold)
-                        Text("Loop je vast?", color = Ink, fontWeight = FontWeight.Bold)
+                        Text(if (simpleLanguage) "Hulp nodig?" else "Loop je vast?", color = Ink, fontWeight = FontWeight.Bold)
                     }
-                    Text("Je hoeft niet te haasten. Lees de stap nog eens, probeer de tip of vraag iemand die je vertrouwt om mee te kijken.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                    Text(
+                        if (simpleLanguage) "Lukt het niet? Dat geeft niet. Lees de stap rustig nog eens. Vraag iemand die je vertrouwt om hulp als dat fijn is."
+                        else "Je hoeft niet te haasten. Lees de stap nog eens, probeer de tip of vraag iemand die je vertrouwt om mee te kijken.",
+                        color = Ink,
+                        fontSize = if (largeText) 16.sp else 14.sp
+                    )
                     if (showStuckHelp) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("1. Maak het kleiner", color = Teal, fontWeight = FontWeight.Bold)
-                            Text("Splits deze stap op in één kleine handeling. Controleer alleen dat ene onderdeel voordat je verdergaat.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
-                            Text("2. Vraag gericht om hulp", color = Teal, fontWeight = FontWeight.Bold)
-                            Text("Vertel wat je wilde doen, wat er gebeurde en welke foutmelding of vraag je ziet. Deel geen wachtwoorden of herstelcodes.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
-                            Text("3. Pauzeer en probeer later opnieuw", color = Teal, fontWeight = FontWeight.Bold)
-                            Text("Als je gefrustreerd raakt of iets onveilig voelt, stop dan. Bewaar waar je bent gebleven en probeer het later opnieuw of vraag iemand die je vertrouwt.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                            Text(if (simpleLanguage) "Doe alleen het eerste kleine stukje." else "Splits deze stap op in één kleine handeling. Controleer alleen dat ene onderdeel voordat je verdergaat.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                            Text(if (simpleLanguage) "2. Vraag om hulp" else "2. Vraag gericht om hulp", color = Teal, fontWeight = FontWeight.Bold)
+                            Text(if (simpleLanguage) "Vertel wat je probeert te doen en waar je vastloopt. Deel nooit wachtwoorden of herstelcodes." else "Vertel wat je wilde doen, wat er gebeurde en welke foutmelding of vraag je ziet. Deel geen wachtwoorden of herstelcodes.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                            Text("3. Neem een pauze", color = Teal, fontWeight = FontWeight.Bold)
+                            Text(if (simpleLanguage) "Stop even als je boos of onzeker wordt. Probeer het later opnieuw of vraag iemand om mee te kijken." else "Als je gefrustreerd raakt of iets onveilig voelt, stop dan. Bewaar waar je bent gebleven en probeer het later opnieuw of vraag iemand die je vertrouwt.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
                         }
                     }
                     TextButton(onClick = { showStuckHelp = !showStuckHelp }) {
@@ -1050,6 +1824,7 @@ private fun StepCard(
     title: String,
     instruction: String,
     tip: String?,
+    imageUri: String?,
     largeText: Boolean,
     modifier: Modifier = Modifier,
     onSpeak: () -> Unit
@@ -1061,6 +1836,7 @@ private fun StepCard(
             }
             Text(title, color = Ink, fontWeight = FontWeight.Bold, fontSize = if (largeText) 27.sp else 22.sp)
             Text(instruction, color = Ink, fontSize = if (largeText) 21.sp else 17.sp, lineHeight = if (largeText) 30.sp else 25.sp)
+            if (imageUri != null) GuidePhoto(imageUri, Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp)))
             if (!tip.isNullOrBlank()) {
                 HorizontalDivider(color = Border)
                 Text("Tip", color = Teal, fontWeight = FontWeight.Bold, fontSize = if (largeText) 17.sp else 14.sp)
