@@ -369,7 +369,7 @@ private fun BrandHeader(onSettings: () -> Unit) {
 @Composable
 private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Unit) {
     Column(
-        Modifier.width(246.dp).fillMaxHeight().background(Ink).padding(horizontal = 14.dp, vertical = 18.dp),
+        Modifier.width(246.dp).fillMaxHeight().background(Panel).padding(horizontal = 14.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -382,13 +382,13 @@ private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Uni
             val active = item == selected
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
-                    .background(if (active) Color(0xFF24465A) else Color.Transparent)
+                    .background(if (active) PanelElevated else Color.Transparent)
                     .clickable { onSelect(item) }
                     .padding(horizontal = 12.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(item.icon, contentDescription = null, tint = if (active) Color(0xFF75DED2) else Color(0xFFC4D3DE))
+                Icon(item.icon, contentDescription = null, tint = if (active) Teal else Color(0xFFC4D3DE))
                 Text(item.label, color = Color.White, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal)
             }
         }
@@ -752,7 +752,7 @@ private fun CreateGuideScreen(
                 Text("Schrijf het op in kleine, duidelijke stappen.", color = Muted)
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it.take(90) }, modifier = Modifier.fillMaxWidth(), label = { Text("Titel van je handleiding") }, placeholder = { Text("Bijv. Mijn tablet klaarmaken") }, singleLine = true)
                 OutlinedTextField(value = summary, onValueChange = { summary = it.take(220) }, modifier = Modifier.fillMaxWidth(), label = { Text("Korte uitleg (optioneel)") }, minLines = 2, maxLines = 4)
@@ -810,7 +810,7 @@ private fun SettingsScreen(largeText: Boolean, onLargeTextChange: (Boolean) -> U
     ) {
         Text("Instellingen", fontSize = if (largeText) 28.sp else 24.sp, fontWeight = FontWeight.Bold, color = Ink)
         Text("Maak KlaarKompas passend bij jouw manier van werken.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -820,7 +820,7 @@ private fun SettingsScreen(largeText: Boolean, onLargeTextChange: (Boolean) -> U
                 Switch(checked = largeText, onCheckedChange = onLargeTextChange, modifier = Modifier.semantics { contentDescription = "Grotere tekst inschakelen" })
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Offline en privacy", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
                 Text("Gidsen, favorieten, voortgang en eigen gidsen worden lokaal bewaard. Deze versie heeft geen account of eigen synchronisatie. Bij voorlezen gebruikt Android de tekst-naar-spraakdienst die op jouw toestel is ingesteld.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
@@ -867,7 +867,7 @@ private fun GuideCard(
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
         shape = RoundedCornerShape(19.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Panel),
         border = BorderStroke(1.dp, Border)
     ) {
         Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -915,7 +915,7 @@ private fun GuideCard(
 
 @Composable
 private fun EmptyState(title: String, message: String, icon: ImageVector) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(icon, contentDescription = null, tint = Teal, modifier = Modifier.size(38.dp))
             Text(title, color = Ink, fontWeight = FontWeight.Bold, fontSize = 17.sp)
@@ -967,7 +967,7 @@ private fun GuidePlayer(
                 Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null, tint = Teal)
             }
         }
-        HorizontalDivider(color = Color(0xFFE4EAED))
+        HorizontalDivider(color = Border)
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = if (tabletLayout) 34.dp else 18.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -1054,7 +1054,7 @@ private fun StepCard(
     modifier: Modifier = Modifier,
     onSpeak: () -> Unit
 ) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Border)) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Border)) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(Modifier.size(50.dp).clip(RoundedCornerShape(16.dp)).background(Mint), contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.PlayArrow, contentDescription = null, tint = Teal, modifier = Modifier.size(29.dp))
@@ -1077,7 +1077,7 @@ private fun StepCard(
 
 @Composable
 private fun MaterialsCard(stepCount: Int, minutes: Int, largeText: Boolean) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Over deze handleiding", fontWeight = FontWeight.Bold, color = Ink, fontSize = if (largeText) 18.sp else 15.sp)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -1094,7 +1094,7 @@ private fun MaterialsCard(stepCount: Int, minutes: Int, largeText: Boolean) {
 
 @Composable
 private fun SafetyCard(note: String, largeText: Boolean) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5DF)), shape = RoundedCornerShape(18.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF332A18)), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Let op", color = Gold, fontWeight = FontWeight.Bold, fontSize = if (largeText) 18.sp else 15.sp)
             Text(note, color = Ink, fontSize = if (largeText) 16.sp else 13.sp, lineHeight = if (largeText) 23.sp else 19.sp)
@@ -1145,7 +1145,7 @@ private fun TogetherScreen(
     ) {
         Text("Samen-doen", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Ink)
         Text("Kom je ergens niet uit? Vul samen in wat je wilt doen en kies uitleg die bij je past.", fontSize = bodySize, color = Muted)
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Welke taak ga je doen?", fontSize = bodySize, fontWeight = FontWeight.SemiBold)
                 OutlinedTextField(
@@ -1205,7 +1205,7 @@ private fun TogetherScreen(
                 }
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Notitie voor jezelf of je helper", fontSize = bodySize, fontWeight = FontWeight.SemiBold)
                 OutlinedTextField(
