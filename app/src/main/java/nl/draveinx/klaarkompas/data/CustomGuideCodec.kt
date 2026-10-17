@@ -31,7 +31,8 @@ object CustomGuideCodec {
                         encodeText(step.imageUri ?: NULL_SENTINEL)
                     ).joinToString(".")
                 },
-                encodeText(guide.coverImageUri ?: NULL_SENTINEL)
+                encodeText(guide.coverImageUri ?: NULL_SENTINEL),
+                encodeText(guide.safetyNote ?: NULL_SENTINEL)
             )
             fields.joinToString("|")
         }
@@ -42,7 +43,7 @@ object CustomGuideCodec {
             if (line.isBlank()) return@guideLine null
             runCatching {
                 val fields = line.split('|')
-                require(fields.size == 6 || fields.size == 7)
+                require(fields.size in 6..8)
                 val id = fields[0]
                 require(id.startsWith(CUSTOM_PREFIX))
                 val title = decodeText(fields[1]).trim()
@@ -75,6 +76,8 @@ object CustomGuideCodec {
                     tags = listOf("mijn gids", category.lowercase()),
                     steps = steps,
                     coverImageUri = fields.getOrNull(6)?.let(::decodeText)
+                        ?.takeUnless { it == NULL_SENTINEL || it.isBlank() },
+                    safetyNote = fields.getOrNull(7)?.let(::decodeText)
                         ?.takeUnless { it == NULL_SENTINEL || it.isBlank() }
                 )
             }.getOrNull()
