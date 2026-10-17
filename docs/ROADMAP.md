@@ -42,3 +42,18 @@
 ## Release gates
 
 Do not mark a phase complete solely because workflow YAML exists. Require passing CI, manual phone/tablet checks, content review, privacy/security checks and a signed release candidate. Public-release signing must use protected GitHub secrets or another secure signing environment; secrets must never be committed.
+
+## Shipped in source package 0.2.0
+
+- Personal guide creation and local persistence.
+- Search and saved-guide integration for user-created guides.
+- Serialization unit tests for Unicode, multiline text, delimiters, malformed records and duplicate IDs.
+- Expanded in-context stuck-help alternatives.
+
+## Next implementation priorities
+
+1. Run GitHub Actions to confirm Android compilation, tests, lint and both form-factor build variants.
+2. Install the phone and tablet debug APKs on real devices and correct any layout or accessibility regressions.
+3. Add edit/delete for personal guides and confirmations for destructive changes.
+4. Add progress indicators for each guide and improve input validation.
+5. After real-world testing, consider import/export and a reviewed content contribution workflow.
