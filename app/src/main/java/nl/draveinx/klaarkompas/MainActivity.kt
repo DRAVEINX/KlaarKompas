@@ -36,8 +36,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccessTime
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -45,11 +45,11 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.VolumeUp
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -557,7 +557,7 @@ private fun CreateGuideScreen(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             IconButton(onClick = onCancel, modifier = Modifier.semantics { contentDescription = "Gids maken annuleren" }) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = null)
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
             }
             Column(Modifier.weight(1f)) {
                 Text("Maak je eigen handleiding", fontSize = if (largeText) 27.sp else 23.sp, fontWeight = FontWeight.Bold, color = Ink)
@@ -623,7 +623,7 @@ private fun SettingsScreen(largeText: Boolean, onLargeTextChange: (Boolean) -> U
         Text("Maak KlaarKompas passend bij jouw manier van werken.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
         Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Outlined.MenuBook, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
+                Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Grotere tekst", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
                     Text("Gebruik ruimere tekst in de handleidingen en overzichten.", color = Muted, fontSize = if (largeText) 16.sp else 13.sp)
@@ -706,7 +706,7 @@ private fun GuideCard(
                 TextButton(onClick = onOpen) {
                     Text(if (progressIndex != null && !isCompleted) "Ga verder" else if (isCompleted) "Opnieuw bekijken" else "Start handleiding")
                     Spacer(Modifier.width(5.dp))
-                    Icon(Icons.Outlined.ArrowForward, contentDescription = null, modifier = Modifier.size(17.dp))
+                    Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null, modifier = Modifier.size(17.dp))
                 }
             }
         }
@@ -728,7 +728,7 @@ private fun categoryIcon(category: String): ImageVector = when (category) {
     "Digitale vaardigheden" -> Icons.Outlined.Explore
     "Thuis" -> Icons.Outlined.Home
     "Praktische zaken" -> Icons.Outlined.CheckCircle
-    "Werk & studie" -> Icons.Outlined.MenuBook
+    "Werk & studie" -> Icons.AutoMirrored.Outlined.MenuBook
     else -> Icons.Outlined.Lightbulb
 }
 
@@ -757,14 +757,14 @@ private fun GuidePlayer(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             IconButton(onClick = onExit, modifier = Modifier.semantics { contentDescription = "Terug naar de gidsen" }) {
-                Icon(Icons.Outlined.ArrowBack, contentDescription = null)
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(guide.category, color = Teal, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Text(guide.title, color = Ink, fontSize = if (largeText) 19.sp else 16.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             IconButton(onClick = { onSpeak("${guide.title}. Stap ${stepIndex + 1}. ${step.title}. ${step.instruction}") }, modifier = Modifier.semantics { contentDescription = "Lees deze stap voor" }) {
-                Icon(Icons.Outlined.VolumeUp, contentDescription = null, tint = Teal)
+                Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null, tint = Teal)
             }
         }
         HorizontalDivider(color = Color(0xFFE4EAED))
@@ -821,7 +821,7 @@ private fun GuidePlayer(
                         modifier = Modifier.weight(1f).height(52.dp),
                         shape = RoundedCornerShape(15.dp)
                     ) {
-                        Icon(Icons.Outlined.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
                         Text("Vorige")
                     }
@@ -837,7 +837,7 @@ private fun GuidePlayer(
                 ) {
                     Text(if (stepIndex == guide.steps.lastIndex) "Afronden" else "Volgende stap")
                     Spacer(Modifier.width(6.dp))
-                    Icon(if (stepIndex == guide.steps.lastIndex) Icons.Outlined.CheckCircle else Icons.Outlined.ArrowForward, contentDescription = null)
+                    Icon(if (stepIndex == guide.steps.lastIndex) Icons.Outlined.CheckCircle else Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -867,7 +867,7 @@ private fun StepCard(
                 Text(tip, color = Muted, fontSize = if (largeText) 18.sp else 14.sp, lineHeight = if (largeText) 26.sp else 21.sp)
             }
             OutlinedButton(onClick = onSpeak, shape = RoundedCornerShape(13.dp)) {
-                Icon(Icons.Outlined.VolumeUp, contentDescription = null)
+                Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null)
                 Spacer(Modifier.width(7.dp))
                 Text("Lees stap voor")
             }
@@ -881,7 +881,7 @@ private fun MaterialsCard(stepCount: Int, minutes: Int, largeText: Boolean) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Over deze handleiding", fontWeight = FontWeight.Bold, color = Ink, fontSize = if (largeText) 18.sp else 15.sp)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Icon(Icons.Outlined.MenuBook, contentDescription = null, tint = Teal)
+                Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = Teal)
                 Text("$stepCount duidelijke stappen", color = Muted, fontSize = if (largeText) 16.sp else 13.sp)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
