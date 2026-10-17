@@ -801,7 +801,14 @@ private fun GuidePlayer(
                     }
                     Text("Je hoeft niet te haasten. Lees de stap nog eens, probeer de tip of vraag iemand die je vertrouwt om mee te kijken.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
                     if (showStuckHelp) {
-                        Text("Probeer het probleem in één zin te beschrijven: wat wilde je doen, wat gebeurde er en wat zie je nu op het scherm of voor je? Daarmee kun je gerichter zoeken of hulp vragen.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("1. Maak het kleiner", color = Teal, fontWeight = FontWeight.Bold)
+                            Text("Splits deze stap op in één kleine handeling. Controleer alleen dat ene onderdeel voordat je verdergaat.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                            Text("2. Vraag gericht om hulp", color = Teal, fontWeight = FontWeight.Bold)
+                            Text("Vertel wat je wilde doen, wat er gebeurde en welke foutmelding of vraag je ziet. Deel geen wachtwoorden of herstelcodes.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                            Text("3. Pauzeer en probeer later opnieuw", color = Teal, fontWeight = FontWeight.Bold)
+                            Text("Als je gefrustreerd raakt of iets onveilig voelt, stop dan. Bewaar waar je bent gebleven en probeer het later opnieuw of vraag iemand die je vertrouwt.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                        }
                     }
                     TextButton(onClick = { showStuckHelp = !showStuckHelp }) {
                         Text(if (showStuckHelp) "Verberg extra hulp" else "Help me om de volgende stap te zetten")
