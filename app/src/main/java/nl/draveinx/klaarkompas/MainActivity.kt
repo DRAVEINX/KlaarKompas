@@ -970,38 +970,121 @@ private fun SavedScreen(
 @Composable
 private fun CreateGuideScreen(
     largeText: Boolean,
+    initialGuide: Guide?,
     onCancel: () -> Unit,
     onSave: (Guide) -> Unit
 ) {
-    var title by rememberSaveable { mutableStateOf("") }
-    var summary by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf("Leren & maken") }
-    var minutesText by rememberSaveable { mutableStateOf("10") }
-    var stepsText by rememberSaveable { mutableStateOf("") }
-    val parsedSteps = stepsText.lineSequence().map { it.trim() }.filter { it.isNotBlank() }
-        .mapIndexed { index, line ->
-            val parts = line.split(":", limit = 2)
-            if (parts.size == 2) GuideStep(parts[0].trim().ifBlank { "Stap ${index + 1}" }, parts[1].trim())
-            else GuideStep("Stap ${index + 1}", line)
-        }.filter { it.instruction.isNotBlank() }.take(20).toList()
+    val context = LocalContext.current
+    var title by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.title.orEmpty()) }
+    var summary by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.summary.orEmpty()) }
+    var category by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.category ?: "Leren & maken") }
+    var minutesText by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.minutes?.toString() ?: "10") }
+    var safetyNote by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.safetyNote.orEmpty()) }
+    var stepsText by rememberSaveable(initialGuide?.id) {
+        mutableStateOf(initialGuide?.steps?.joinToString("\n") { step ->
+            "\${step.title}: \${step.instruction}" + (step.tip?.let { " | Tip: $it" } ?: "")
+        }.orEmpty())
+    }
+    var coverImageUri by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.coverImageUri) }
+    var stepPhotosText by rememberSaveable(initialGuide?.id) {
+        mutableStateOf(initialGuide?.steps?.joinToString(",") { it.imageUri.orEmpty() }.orEmpty())
+    }
+    var photoTarget by rememberSaveable(initialGuide?.id) { mutableStateOf("cover") }
+    var selectedStepForPhoto by rememberSaveable(initialGuide?.id) { mutableIntStateOf(0) }
+    var voiceTarget by rememberSaveable(initialGuide?.id) { mutableStateOf("steps") }
+
+    val normalizedLines = stepsText.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.take(20).toList()
+    val photoUris = stepPhotosText.split(",")
+    val parsedSteps = normalizedLines.mapIndexed { index, line ->
+        val tipParts = line.split("| Tip:", limit = 2)
+        val body = tipParts[0]
+        val parts = body.split(":", limit = 2)
+        val stepTitle = if (parts.size == 2) parts[0].trim().ifBlank { "Stap \${index + 1}" } else "Stap \${index + 1}"
+        val instruction = if (parts.size == 2) parts[1].trim() else body
+        GuideStep(
+            title = stepTitle,
+            instruction = instruction,
+            tip = tipParts.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() },
+            imageUri = photoUris.getOrNull(index)?.takeIf { it.isNotBlank() }
+        )
+    }.filter { it.instruction.isNotBlank() }
+
+    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty()
+            when (voiceTarget) {
+                "title" -> if (spoken.isNotBlank()) title = spoken.take(90)
+                "summary" -> if (spoken.isNotBlank()) summary = spoken.take(220)
+                "safety" -> if (spoken.isNotBlank()) safetyNote = spoken.take(600)
+                else -> if (spoken.isNotBlank()) {
+                    stepsText = (stepsText + if (stepsText.isBlank()) "" else "\n" + spoken).lineSequence().take(20).joinToString("\n").take(12000)
+                }
+            }
+        }
+    }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { sourceUri ->
+        if (sourceUri != null) {
+            val saved = copyGuideImage(context, sourceUri)
+            if (saved != null) {
+                if (photoTarget == "cover") {
+                    coverImageUri = saved
+                } else {
+                    val index = photoTarget.removePrefix("step:").toIntOrNull() ?: 0
+                    val photos = stepPhotosText.split(",").toMutableList()
+                    while (photos.size <= index) photos.add("")
+                    photos[index] = saved
+                    stepPhotosText = photos.joinToString(",")
+                    selectedStepForPhoto = index
+                }
+            } else {
+                Toast.makeText(context, "De foto kon niet worden opgeslagen. Kies een afbeelding kleiner dan 10 MB.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    fun startDictation(target: String) {
+        voiceTarget = target
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "nl-NL")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Spreek rustig in het Nederlands")
+        }
+        if (intent.resolveActivity(context.packageManager) != null) {
+            runCatching { speechLauncher.launch(intent) }.onFailure {
+                Toast.makeText(context, "Spraakinvoer is niet beschikbaar op dit apparaat.", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            Toast.makeText(context, "Schakel een Android-spraakdienst in om tekst in te spreken.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     Column(
         Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconButton(onClick = onCancel, modifier = Modifier.semantics { contentDescription = "Gids maken annuleren" }) {
+            IconButton(onClick = onCancel, modifier = Modifier.semantics { contentDescription = "Gidseditor sluiten" }) {
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
             }
             Column(Modifier.weight(1f)) {
-                Text("Maak je eigen handleiding", fontSize = if (largeText) 27.sp else 23.sp, fontWeight = FontWeight.Bold, color = Ink)
-                Text("Schrijf het op in kleine, duidelijke stappen.", color = Muted)
+                Text(if (initialGuide == null) "Maak je eigen handleiding" else "Handleiding bewerken", fontSize = if (largeText) 27.sp else 23.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Text("Typ of spreek de stappen in en voeg foto's toe.", color = Muted)
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it.take(90) }, modifier = Modifier.fillMaxWidth(), label = { Text("Titel van je handleiding") }, placeholder = { Text("Bijv. Mijn tablet klaarmaken") }, singleLine = true)
-                OutlinedTextField(value = summary, onValueChange = { summary = it.take(220) }, modifier = Modifier.fillMaxWidth(), label = { Text("Korte uitleg (optioneel)") }, minLines = 2, maxLines = 4)
+                TextButton(onClick = { startDictation("title") }) {
+                    Icon(Icons.Outlined.Mic, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Titel inspreken")
+                }
+                OutlinedTextField(value = summary, onValueChange = { summary = it.take(220) }, modifier = Modifier.fillMaxWidth(), label = { Text("Korte uitleg") }, minLines = 2, maxLines = 4)
+                TextButton(onClick = { startDictation("summary") }) {
+                    Icon(Icons.Outlined.Mic, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Uitleg inspreken")
+                }
                 OutlinedTextField(value = minutesText, onValueChange = { minutesText = it.filter(Char::isDigit).take(3) }, modifier = Modifier.fillMaxWidth(), label = { Text("Geschatte tijd in minuten") }, singleLine = true)
                 Text("Kies een categorie", color = Ink, fontWeight = FontWeight.SemiBold)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1009,29 +1092,80 @@ private fun CreateGuideScreen(
                         FilterChip(selected = category == item, onClick = { category = item }, label = { Text(item) })
                     }
                 }
+                Text("Omslagfoto", color = Ink, fontWeight = FontWeight.SemiBold)
+                if (coverImageUri != null) GuidePhoto(coverImageUri, Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(14.dp)))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { photoTarget = "cover"; photoPicker.launch(arrayOf("image/*")) }) {
+                        Text(if (coverImageUri == null) "Omslagfoto kiezen" else "Omslagfoto wijzigen")
+                    }
+                    if (coverImageUri != null) TextButton(onClick = { coverImageUri = null }) { Text("Verwijderen") }
+                }
                 OutlinedTextField(
                     value = stepsText,
                     onValueChange = { stepsText = it.lineSequence().take(20).joinToString("\n").take(12000) },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Stappen (maximaal 20)") },
-                    placeholder = { Text("Eén stap per regel. Gebruik eventueel ‘Titel: uitleg’.") },
+                    placeholder = { Text("Titel: uitleg | Tip: extra uitleg") },
                     minLines = 5,
                     maxLines = 12,
-                    supportingText = { Text("${parsedSteps.size}/20 stappen") }
+                    supportingText = { Text("\${parsedSteps.size}/20 stappen") }
                 )
+                TextButton(onClick = { startDictation("steps") }) {
+                    Icon(Icons.Outlined.Mic, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Volgende stap inspreken")
+                }
+                Text("Foto toevoegen aan stap", color = Ink, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    IconButton(onClick = { selectedStepForPhoto = (selectedStepForPhoto - 1).coerceAtLeast(0) }, enabled = selectedStepForPhoto > 0) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Vorige stap")
+                    }
+                    Text("Stap \${selectedStepForPhoto + 1}", modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                    IconButton(onClick = { selectedStepForPhoto = (selectedStepForPhoto + 1).coerceAtMost((parsedSteps.size - 1).coerceAtLeast(0)) }, enabled = selectedStepForPhoto < parsedSteps.lastIndex) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "Volgende stap")
+                    }
+                }
+                val selectedPhoto = photoUris.getOrNull(selectedStepForPhoto)?.takeIf { it.isNotBlank() }
+                if (selectedPhoto != null) GuidePhoto(selectedPhoto, Modifier.fillMaxWidth().height(130.dp).clip(RoundedCornerShape(14.dp)))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { photoTarget = "step:$selectedStepForPhoto"; photoPicker.launch(arrayOf("image/*")) },
+                        enabled = parsedSteps.isNotEmpty()
+                    ) { Text("Foto kiezen") }
+                    if (selectedPhoto != null) TextButton(onClick = {
+                        val values = stepPhotosText.split(",").toMutableList()
+                        if (selectedStepForPhoto < values.size) values[selectedStepForPhoto] = ""
+                        stepPhotosText = values.joinToString(",")
+                    }) { Text("Foto verwijderen") }
+                }
+                OutlinedTextField(
+                    value = safetyNote,
+                    onValueChange = { safetyNote = it.take(600) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Waarschuwing / let op (optioneel)") },
+                    minLines = 2,
+                    maxLines = 4
+                )
+                TextButton(onClick = { startDictation("safety") }) {
+                    Icon(Icons.Outlined.Mic, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Waarschuwing inspreken")
+                }
             }
         }
-        Text("Tip: gebruik één handeling per regel. Je kunt je eigen gids later offline openen.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
+        Text("Tips zijn optioneel: gebruik ‘ | Tip: ’ achter een stap om extra uitleg toe te voegen.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
         Button(
             onClick = {
                 onSave(Guide(
-                    id = "custom-${UUID.randomUUID()}",
+                    id = initialGuide?.id ?: "custom-\${UUID.randomUUID()}",
                     title = title.trim(),
                     summary = summary.trim().ifBlank { "Een persoonlijke handleiding." },
                     category = category,
                     minutes = minutesText.toIntOrNull()?.coerceIn(1, 600) ?: 10,
                     tags = listOf("mijn gids", "persoonlijk", category.lowercase(Locale.ROOT)),
-                    steps = parsedSteps
+                    steps = parsedSteps,
+                    safetyNote = safetyNote.trim().takeIf { it.isNotBlank() },
+                    coverImageUri = coverImageUri
                 ))
             },
             enabled = title.isNotBlank() && parsedSteps.isNotEmpty(),
@@ -1041,7 +1175,7 @@ private fun CreateGuideScreen(
         ) {
             Icon(Icons.Outlined.CheckCircle, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Handleiding opslaan")
+            Text(if (initialGuide == null) "Handleiding opslaan" else "Wijzigingen opslaan")
         }
         TextButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Annuleren") }
     }
