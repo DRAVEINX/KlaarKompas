@@ -1,5 +1,7 @@
 # Google Play Data safety — voorbereidingsnotitie voor versie 0.3.0
 
+**Ontwikkelaarscontact:** DRAVEINX — draveinx@gmail.com
+
 **Belangrijk:** dit document is een controlehulp, geen definitieve Data safety-verklaring. De ontwikkelaar moet de werkelijke uitvoering op de doelapparaten en de gegevenspraktijken van de gebruikte externe diensten beoordelen voordat het formulier in Play Console wordt ingediend. Vul het formulier afzonderlijk in voor de telefoon- en tablet-app, ook al delen ze dezelfde broncode.
 
 Officiële informatie:
