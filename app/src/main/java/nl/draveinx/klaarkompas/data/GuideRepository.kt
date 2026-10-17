@@ -3,7 +3,8 @@ package nl.draveinx.klaarkompas.data
 data class GuideStep(
     val title: String,
     val instruction: String,
-    val tip: String? = null
+    val tip: String? = null,
+    val imageUri: String? = null
 )
 
 data class Guide(
@@ -14,7 +15,8 @@ data class Guide(
     val minutes: Int,
     val tags: List<String>,
     val steps: List<GuideStep>,
-    val safetyNote: String? = null
+    val safetyNote: String? = null,
+    val coverImageUri: String? = null
 )
 
 /** Bundled starter library: all content is available offline. */
