@@ -2,6 +2,9 @@ name: KlaarKompas Signed Android Release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - release/klaarkompas-0.3.0
 
 permissions:
   contents: read
@@ -13,7 +16,7 @@ concurrency:
 jobs:
   signed-release:
     name: Sign and verify phone + tablet release
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/klaarkompas-0.3.0'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
