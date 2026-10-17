@@ -110,6 +110,8 @@ import nl.draveinx.klaarkompas.data.CustomGuideCodec
 import nl.draveinx.klaarkompas.data.Guide
 import nl.draveinx.klaarkompas.data.GuideStep
 import nl.draveinx.klaarkompas.data.GuideRepository
+import nl.draveinx.klaarkompas.support.AdaptiveHelp
+import nl.draveinx.klaarkompas.support.HelpStyle
 
 private val Context.dataStore by preferencesDataStore(name = "klaarkompas_preferences")
 private val FavoritesKey = stringSetPreferencesKey("favorite_guides")
@@ -135,6 +137,7 @@ class MainActivity : ComponentActivity() {
 private enum class Destination(val label: String, val icon: ImageVector) {
     Explore("Ontdekken", Icons.Outlined.Explore),
     Saved("Mijn gidsen", Icons.Outlined.BookmarkBorder),
+    Together("Samen-doen", Icons.Outlined.Lightbulb),
     Create("Gids maken", Icons.Outlined.Add),
     Settings("Instellingen", Icons.Outlined.Settings)
 }
@@ -270,6 +273,10 @@ private fun KlaarKompasApp() {
                                     onDismissMessage = { completionMessage = null },
                                     onOpen = openGuide,
                                     onToggleFavorite = toggleFavorite
+                                )
+                                Destination.Together -> TogetherScreen(
+                                    largeText = largeText,
+                                    onSpeak = speechController::speak
                                 )
                                 Destination.Create -> CreateGuideScreen(
                                     largeText = largeText,
@@ -921,5 +928,102 @@ private class SpeechController(context: Context) : TextToSpeech.OnInitListener {
         engine?.stop()
         engine?.shutdown()
         engine = null
+    }
+}
+
+
+@Composable
+private fun TogetherScreen(
+    largeText: Boolean,
+    onSpeak: (String) -> Unit
+) {
+    var taskTitle by rememberSaveable { mutableStateOf("Een taak samen doen") }
+    var instruction by rememberSaveable { mutableStateOf("Lees de uitleg samen. Doe één stap tegelijk en vraag hulp als je vastloopt.") }
+    var helperNote by rememberSaveable { mutableStateOf("") }
+    var style by rememberSaveable { mutableStateOf(HelpStyle.SIMPLE) }
+    var completed by rememberSaveable { mutableStateOf(false) }
+    val titleSize = if (largeText) 28.sp else 24.sp
+    val bodySize = if (largeText) 19.sp else 16.sp
+    val explanation = AdaptiveHelp.explain(taskTitle, instruction, style)
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text("Samen-doen", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Ink)
+        Text("Kom je ergens niet uit? Vul samen in wat je wilt doen en kies uitleg die bij je past.", fontSize = bodySize, color = Muted)
+        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Welke taak ga je doen?", fontSize = bodySize, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = taskTitle,
+                    onValueChange = { taskTitle = it.take(100); completed = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Naam van de taak") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = instruction,
+                    onValueChange = { instruction = it.take(1200); completed = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Wat is de volgende stap?") },
+                    minLines = 3
+                )
+                Text("Hoe wil je de uitleg?", fontSize = bodySize, fontWeight = FontWeight.SemiBold)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HelpStyle.entries.forEach { option ->
+                        val label = when (option) {
+                            HelpStyle.SIMPLE -> "Eenvoudig"
+                            HelpStyle.STANDARD -> "Standaard"
+                            HelpStyle.DETAILED -> "Extra uitleg"
+                        }
+                        val description = when (option) {
+                            HelpStyle.SIMPLE -> "Korte uitleg, rustig en stap voor stap"
+                            HelpStyle.STANDARD -> "De uitleg zoals je die hebt ingevuld"
+                            HelpStyle.DETAILED -> "Met extra aanwijzingen en een controle achteraf"
+                        }
+                        FilterChip(
+                            selected = style == option,
+                            onClick = { style = option },
+                            label = { Column { Text(label); Text(description, fontSize = 12.sp, color = Muted) } }
+                        )
+                    }
+                }
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = Mint), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Jullie volgende stap", fontSize = bodySize, fontWeight = FontWeight.Bold, color = Ink)
+                Text(explanation, fontSize = bodySize, color = Ink)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onSpeak(explanation) }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Lees voor")
+                    }
+                    OutlinedButton(onClick = { completed = !completed }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (completed) "Opnieuw" else "Gelukt")
+                    }
+                }
+                if (completed) {
+                    Text("Goed gedaan! Bespreek samen wat de volgende stap is.", fontSize = bodySize, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Notitie voor jezelf of je helper", fontSize = bodySize, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = helperNote,
+                    onValueChange = { helperNote = it.take(500) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Bijvoorbeeld: waar wil ik hulp bij?") },
+                    minLines = 2
+                )
+                Text("Deze notitie blijft alleen in dit scherm zolang je het gebruikt. Er wordt niets online gedeeld.", fontSize = 13.sp, color = Muted)
+            }
+        }
     }
 }
