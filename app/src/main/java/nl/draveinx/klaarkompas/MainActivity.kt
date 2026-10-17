@@ -8,6 +8,7 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -72,7 +74,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -87,7 +89,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -123,12 +130,15 @@ private val LargeTextKey = booleanPreferencesKey("large_text")
 private val CustomGuidesKey = stringPreferencesKey("custom_guides_v1")
 private const val PrivacyPolicyUrl = "https://github.com/DRAVEINX/KlaarKompas/blob/main/docs/PRIVACY_POLICY_NL.md"
 
-private val Ink = Color(0xFF152438)
-private val Teal = Color(0xFF16756D)
-private val Mint = Color(0xFFDDF4F1)
-private val Canvas = Color(0xFFF4F7F8)
-private val Muted = Color(0xFF596A78)
-private val Gold = Color(0xFFF0C36D)
+private val Ink = Color(0xFFEAF5FC)
+private val Teal = Color(0xFF39C6E8)
+private val Mint = Color(0xFF113448)
+private val AppBackground = Color(0xFF061321)
+private val Muted = Color(0xFFA6BECC)
+private val Gold = Color(0xFFFFCF70)
+private val Panel = Color(0xFF0B2032)
+private val PanelElevated = Color(0xFF102B40)
+private val Border = Color(0xFF234357)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -147,19 +157,21 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 
 @Composable
 private fun KlaarKompasTheme(content: @Composable () -> Unit) {
-    val scheme = lightColorScheme(
+    val scheme = darkColorScheme(
         primary = Teal,
-        onPrimary = Color.White,
+        onPrimary = AppBackground,
         primaryContainer = Mint,
         onPrimaryContainer = Ink,
-        secondary = Color(0xFF97651A),
-        background = Canvas,
+        secondary = Gold,
+        onSecondary = AppBackground,
+        background = AppBackground,
         onBackground = Ink,
-        surface = Color.White,
+        surface = Panel,
         onSurface = Ink,
-        surfaceVariant = Color(0xFFE8EEF0),
+        surfaceVariant = PanelElevated,
         onSurfaceVariant = Muted,
-        outline = Color(0xFFD3DDE1)
+        outline = Border,
+        error = Color(0xFFFF887F)
     )
     MaterialTheme(colorScheme = scheme, content = content)
 }
@@ -225,7 +237,7 @@ private fun KlaarKompasApp() {
         completionMessage = null
     }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = Canvas) {
+    Surface(modifier = Modifier.fillMaxSize(), color = AppBackground) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val tabletLayout = maxWidth >= 760.dp
             Row(Modifier.fillMaxSize()) {
@@ -263,6 +275,7 @@ private fun KlaarKompasApp() {
                                     progress = progress,
                                     completed = completed,
                                     largeText = largeText,
+                                    tabletLayout = tabletLayout,
                                     onOpen = openGuide,
                                     onToggleFavorite = toggleFavorite
                                 )
@@ -336,7 +349,7 @@ private fun serializeProgress(progress: Map<String, Int>): String =
 @Composable
 private fun BrandHeader(onSettings: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(Ink).padding(horizontal = 20.dp, vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth().background(Panel).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -356,11 +369,11 @@ private fun BrandHeader(onSettings: () -> Unit) {
 @Composable
 private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Unit) {
     Column(
-        Modifier.width(246.dp).fillMaxHeight().background(Ink).padding(horizontal = 14.dp, vertical = 18.dp),
+        Modifier.width(246.dp).fillMaxHeight().background(Panel).padding(horizontal = 14.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Explore, contentDescription = null, tint = Color(0xFF75DED2), modifier = Modifier.size(26.dp))
+            Icon(Icons.Outlined.Explore, contentDescription = null, tint = Teal, modifier = Modifier.size(26.dp))
             Spacer(Modifier.width(9.dp))
             Text("KlaarKompas", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
@@ -369,13 +382,13 @@ private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Uni
             val active = item == selected
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
-                    .background(if (active) Color(0xFF24465A) else Color.Transparent)
+                    .background(if (active) PanelElevated else Color.Transparent)
                     .clickable { onSelect(item) }
                     .padding(horizontal = 12.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(item.icon, contentDescription = null, tint = if (active) Color(0xFF75DED2) else Color(0xFFC4D3DE))
+                Icon(item.icon, contentDescription = null, tint = if (active) Teal else Color(0xFFC4D3DE))
                 Text(item.label, color = Color.White, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal)
             }
         }
@@ -386,7 +399,7 @@ private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Uni
 
 @Composable
 private fun BottomNavigation(selected: Destination, onSelect: (Destination) -> Unit) {
-    NavigationBar(containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
+    NavigationBar(containerColor = Panel, windowInsets = WindowInsets.navigationBars) {
         Destination.entries.forEach { item ->
             NavigationBarItem(
                 selected = item == selected,
@@ -394,6 +407,161 @@ private fun BottomNavigation(selected: Destination, onSelect: (Destination) -> U
                 icon = { Icon(item.icon, contentDescription = null) },
                 label = { Text(item.label) }
             )
+        }
+    }
+}
+
+@Composable
+private fun TrailHeroCard(
+    largeText: Boolean,
+    tabletLayout: Boolean,
+    onExplore: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        shape = RoundedCornerShape(26.dp),
+        border = BorderStroke(1.dp, Border.copy(alpha = 0.85f))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = if (tabletLayout) 290.dp else 282.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF071827),
+                            Color(0xFF0D3448),
+                            Color(0xFF092033)
+                        )
+                    )
+                )
+        ) {
+            Canvas(Modifier.matchParentSize()) {
+                // Decorative topographic contour lines: visual texture only, not a real map.
+                for (i in 0..8) {
+                    val shift = i * 19f
+                    val contour = Path().apply {
+                        moveTo(size.width * 0.58f + shift, -22f)
+                        cubicTo(
+                            size.width * 0.95f + shift, size.height * 0.12f,
+                            size.width * 0.39f - shift, size.height * 0.29f,
+                            size.width * 0.70f + shift, size.height * 0.48f
+                        )
+                        cubicTo(
+                            size.width * 0.95f + shift, size.height * 0.66f,
+                            size.width * 0.43f - shift, size.height * 0.81f,
+                            size.width * 0.63f + shift, size.height + 24f
+                        )
+                    }
+                    drawPath(
+                        contour,
+                        color = Teal.copy(alpha = 0.08f + i * 0.012f),
+                        style = Stroke(width = 1.25f)
+                    )
+                }
+                val route = Path().apply {
+                    moveTo(size.width * 0.76f, size.height * 0.86f)
+                    cubicTo(
+                        size.width * 0.55f, size.height * 0.70f,
+                        size.width * 0.93f, size.height * 0.53f,
+                        size.width * 0.72f, size.height * 0.33f
+                    )
+                    cubicTo(
+                        size.width * 0.61f, size.height * 0.23f,
+                        size.width * 0.79f, size.height * 0.18f,
+                        size.width * 0.85f, size.height * 0.08f
+                    )
+                }
+                drawPath(
+                    route,
+                    color = Teal.copy(alpha = 0.9f),
+                    style = Stroke(
+                        width = 2.4f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(7f, 10f), 0f)
+                    )
+                )
+                drawCircle(
+                    color = Teal,
+                    radius = 5.5f,
+                    center = Offset(size.width * 0.76f, size.height * 0.86f)
+                )
+                drawCircle(
+                    color = Teal.copy(alpha = 0.22f),
+                    radius = 13f,
+                    center = Offset(size.width * 0.76f, size.height * 0.86f)
+                )
+                drawCircle(
+                    color = Color(0xFF76F1C6),
+                    radius = 4f,
+                    center = Offset(size.width * 0.85f, size.height * 0.08f)
+                )
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(if (tabletLayout) 0.66f else 0.82f)
+                    .padding(
+                        horizontal = if (tabletLayout) 26.dp else 18.dp,
+                        vertical = if (tabletLayout) 24.dp else 20.dp
+                    ),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Teal.copy(alpha = 0.13f))
+                        .padding(horizontal = 11.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        "JOUW PERSOONLIJKE KOMPAS",
+                        color = Teal,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.7.sp
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Text(
+                        "Vind je weg in",
+                        color = Color.White,
+                        fontSize = if (tabletLayout) 34.sp else if (largeText) 29.sp else 25.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = if (tabletLayout) 40.sp else 31.sp
+                    )
+                    Text(
+                        "kleine stappen",
+                        color = Teal,
+                        fontSize = if (tabletLayout) 34.sp else if (largeText) 29.sp else 25.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = if (tabletLayout) 40.sp else 31.sp
+                    )
+                }
+                Text(
+                    "Duidelijke uitleg voor dagelijkse taken — rustig, overzichtelijk en op jouw tempo.",
+                    color = Color(0xFFC7DCE7),
+                    fontSize = if (largeText) 16.sp else 13.sp,
+                    lineHeight = if (largeText) 22.sp else 18.sp
+                )
+                Spacer(Modifier.height(2.dp))
+                Button(
+                    onClick = onExplore,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Teal),
+                    contentPadding = PaddingValues(horizontal = 15.dp, vertical = 11.dp)
+                ) {
+                    Icon(Icons.Outlined.Explore, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(7.dp))
+                    Text("Ontdek handleidingen", fontWeight = FontWeight.SemiBold)
+                }
+                Text(
+                    "OOK ZONDER INTERNET BESCHIKBAAR",
+                    color = Color(0xFFA8C3D2),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.45.sp
+                )
+            }
         }
     }
 }
@@ -410,6 +578,7 @@ private fun ExploreScreen(
     progress: Map<String, Int>,
     completed: Set<String>,
     largeText: Boolean,
+    tabletLayout: Boolean,
     onOpen: (String) -> Unit,
     onToggleFavorite: (String) -> Unit
 ) {
@@ -431,7 +600,16 @@ private fun ExploreScreen(
             Text("Waar wil je mee aan de slag?", fontSize = if (largeText) 28.sp else 24.sp, fontWeight = FontWeight.Bold, color = Ink)
             Spacer(Modifier.height(6.dp))
             Text("Zoek een duidelijke uitleg en voer de stappen op je eigen tempo uit.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
+            TrailHeroCard(
+                largeText = largeText,
+                tabletLayout = tabletLayout,
+                onExplore = {
+                    onSearchChange("")
+                    onCategoryChange("Alles")
+                }
+            )
+            Spacer(Modifier.height(18.dp))
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchChange,
@@ -574,7 +752,7 @@ private fun CreateGuideScreen(
                 Text("Schrijf het op in kleine, duidelijke stappen.", color = Muted)
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it.take(90) }, modifier = Modifier.fillMaxWidth(), label = { Text("Titel van je handleiding") }, placeholder = { Text("Bijv. Mijn tablet klaarmaken") }, singleLine = true)
                 OutlinedTextField(value = summary, onValueChange = { summary = it.take(220) }, modifier = Modifier.fillMaxWidth(), label = { Text("Korte uitleg (optioneel)") }, minLines = 2, maxLines = 4)
@@ -632,7 +810,7 @@ private fun SettingsScreen(largeText: Boolean, onLargeTextChange: (Boolean) -> U
     ) {
         Text("Instellingen", fontSize = if (largeText) 28.sp else 24.sp, fontWeight = FontWeight.Bold, color = Ink)
         Text("Maak KlaarKompas passend bij jouw manier van werken.", color = Muted, fontSize = if (largeText) 17.sp else 14.sp)
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, tint = Teal, modifier = Modifier.size(28.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -642,7 +820,7 @@ private fun SettingsScreen(largeText: Boolean, onLargeTextChange: (Boolean) -> U
                 Switch(checked = largeText, onCheckedChange = onLargeTextChange, modifier = Modifier.semantics { contentDescription = "Grotere tekst inschakelen" })
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Offline en privacy", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
                 Text("Gidsen, favorieten, voortgang en eigen gidsen worden lokaal bewaard. Deze versie heeft geen account of eigen synchronisatie. Bij voorlezen gebruikt Android de tekst-naar-spraakdienst die op jouw toestel is ingesteld.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
@@ -689,8 +867,8 @@ private fun GuideCard(
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
         shape = RoundedCornerShape(19.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE4EAED))
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(1.dp, Border)
     ) {
         Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -721,7 +899,7 @@ private fun GuideCard(
                     progress = { ((progressIndex + 1).toFloat() / guide.steps.size).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().height(5.dp).clip(CircleShape),
                     color = Teal,
-                    trackColor = Color(0xFFE4ECEE)
+                    trackColor = PanelElevated
                 )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -737,7 +915,7 @@ private fun GuideCard(
 
 @Composable
 private fun EmptyState(title: String, message: String, icon: ImageVector) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(icon, contentDescription = null, tint = Teal, modifier = Modifier.size(38.dp))
             Text(title, color = Ink, fontWeight = FontWeight.Bold, fontSize = 17.sp)
@@ -774,7 +952,7 @@ private fun GuidePlayer(
     val progressFraction = (stepIndex + 1).toFloat() / guide.steps.size
     Column(Modifier.fillMaxSize()) {
         Row(
-            Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 14.dp, vertical = 10.dp),
+            Modifier.fillMaxWidth().background(PanelElevated).padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -789,7 +967,7 @@ private fun GuidePlayer(
                 Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null, tint = Teal)
             }
         }
-        HorizontalDivider(color = Color(0xFFE4EAED))
+        HorizontalDivider(color = Border)
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = if (tabletLayout) 34.dp else 18.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -799,7 +977,7 @@ private fun GuidePlayer(
                 progress = { progressFraction },
                 modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
                 color = Teal,
-                trackColor = Color(0xFFDDE7E9)
+                trackColor = PanelElevated
             )
             if (tabletLayout) {
                 Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.Top) {
@@ -814,10 +992,10 @@ private fun GuidePlayer(
                 MaterialsCard(guide.steps.size, guide.minutes, largeText)
                 guide.safetyNote?.let { SafetyCard(it, largeText) }
             }
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5DF)), shape = RoundedCornerShape(18.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF332A18)), shape = RoundedCornerShape(18.dp)) {
                 Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Outlined.Lightbulb, contentDescription = null, tint = Color(0xFF92651B))
+                        Icon(Icons.Outlined.Lightbulb, contentDescription = null, tint = Gold)
                         Text("Loop je vast?", color = Ink, fontWeight = FontWeight.Bold)
                     }
                     Text("Je hoeft niet te haasten. Lees de stap nog eens, probeer de tip of vraag iemand die je vertrouwt om mee te kijken.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
@@ -876,7 +1054,7 @@ private fun StepCard(
     modifier: Modifier = Modifier,
     onSpeak: () -> Unit
 ) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Color(0xFFE0E8EB))) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, Border)) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(Modifier.size(50.dp).clip(RoundedCornerShape(16.dp)).background(Mint), contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.PlayArrow, contentDescription = null, tint = Teal, modifier = Modifier.size(29.dp))
@@ -884,7 +1062,7 @@ private fun StepCard(
             Text(title, color = Ink, fontWeight = FontWeight.Bold, fontSize = if (largeText) 27.sp else 22.sp)
             Text(instruction, color = Ink, fontSize = if (largeText) 21.sp else 17.sp, lineHeight = if (largeText) 30.sp else 25.sp)
             if (!tip.isNullOrBlank()) {
-                HorizontalDivider(color = Color(0xFFE8EEF0))
+                HorizontalDivider(color = Border)
                 Text("Tip", color = Teal, fontWeight = FontWeight.Bold, fontSize = if (largeText) 17.sp else 14.sp)
                 Text(tip, color = Muted, fontSize = if (largeText) 18.sp else 14.sp, lineHeight = if (largeText) 26.sp else 21.sp)
             }
@@ -899,7 +1077,7 @@ private fun StepCard(
 
 @Composable
 private fun MaterialsCard(stepCount: Int, minutes: Int, largeText: Boolean) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Over deze handleiding", fontWeight = FontWeight.Bold, color = Ink, fontSize = if (largeText) 18.sp else 15.sp)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -916,9 +1094,9 @@ private fun MaterialsCard(stepCount: Int, minutes: Int, largeText: Boolean) {
 
 @Composable
 private fun SafetyCard(note: String, largeText: Boolean) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5DF)), shape = RoundedCornerShape(18.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF332A18)), shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Let op", color = Color(0xFF895D13), fontWeight = FontWeight.Bold, fontSize = if (largeText) 18.sp else 15.sp)
+            Text("Let op", color = Gold, fontWeight = FontWeight.Bold, fontSize = if (largeText) 18.sp else 15.sp)
             Text(note, color = Ink, fontSize = if (largeText) 16.sp else 13.sp, lineHeight = if (largeText) 23.sp else 19.sp)
         }
     }
@@ -967,7 +1145,7 @@ private fun TogetherScreen(
     ) {
         Text("Samen-doen", fontSize = titleSize, fontWeight = FontWeight.Bold, color = Ink)
         Text("Kom je ergens niet uit? Vul samen in wat je wilt doen en kies uitleg die bij je past.", fontSize = bodySize, color = Muted)
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Welke taak ga je doen?", fontSize = bodySize, fontWeight = FontWeight.SemiBold)
                 OutlinedTextField(
@@ -1027,7 +1205,7 @@ private fun TogetherScreen(
                 }
             }
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Notitie voor jezelf of je helper", fontSize = bodySize, fontWeight = FontWeight.SemiBold)
                 OutlinedTextField(
