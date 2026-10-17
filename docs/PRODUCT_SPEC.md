@@ -60,3 +60,12 @@ Help people move from “I don't know where to start” to a completed real-worl
 - Unit tests and Android lint complete successfully in CI.
 - UI is checked with TalkBack, larger system font, portrait/landscape and common narrow/wide screens before publication.
 - Release build is signed using a protected signing process before any store upload.
+
+## 0.2.0 — Personal guides and stuck help
+
+- Users can create personal guides with a title, optional summary, category, estimated duration and up to 20 steps.
+- Personal guides are stored locally in Android DataStore and remain available offline without an account or network permission.
+- Personal guide records are encoded with URL-safe Base64 to protect separators, punctuation and multiline text.
+- Personal guides participate in search and appear in “Mijn gidsen” alongside built-in guides.
+- The “Ik loop vast” helper offers three options: break the task down, ask for focused help, or pause and retry safely.
+
