@@ -579,7 +579,7 @@ private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Uni
             Text("KlaarKompas", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
         Spacer(Modifier.height(8.dp))
-        Destination.entries.forEach { item ->
+        Destination.entries.filterNot { it == Destination.More }.forEach { item ->
             val active = item == selected
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp))
@@ -600,13 +600,15 @@ private fun SideNavigation(selected: Destination, onSelect: (Destination) -> Uni
 
 @Composable
 private fun BottomNavigation(selected: Destination, onSelect: (Destination) -> Unit) {
+    val phoneItems = listOf(Destination.Home, Destination.Explore, Destination.Saved, Destination.Planner, Destination.More)
+    val activeItem = if (selected == Destination.Together || selected == Destination.Create || selected == Destination.Settings) Destination.More else selected
     NavigationBar(containerColor = Panel, windowInsets = WindowInsets.navigationBars) {
-        Destination.entries.forEach { item ->
+        phoneItems.forEach { item ->
             NavigationBarItem(
-                selected = item == selected,
+                selected = item == activeItem,
                 onClick = { onSelect(item) },
-                icon = { Icon(item.icon, contentDescription = null) },
-                label = { Text(item.label) }
+                icon = { Icon(item.icon, contentDescription = item.label) },
+                label = { Text(item.label, maxLines = 1) }
             )
         }
     }
@@ -1628,8 +1630,12 @@ private fun GuideCard(
     ) {
         Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Mint), contentAlignment = Alignment.Center) {
-                    Icon(categoryIcon(guide.category), contentDescription = null, tint = Teal, modifier = Modifier.size(22.dp))
+                if (guide.coverImageUri != null) {
+                    GuidePhoto(guide.coverImageUri, Modifier.size(72.dp).clip(RoundedCornerShape(13.dp)))
+                } else {
+                    Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Mint), contentAlignment = Alignment.Center) {
+                        Icon(categoryIcon(guide.category), contentDescription = null, tint = Teal, modifier = Modifier.size(22.dp))
+                    }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(guide.title, fontSize = if (largeText) 19.sp else 16.sp, fontWeight = FontWeight.SemiBold, color = Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -1694,10 +1700,13 @@ private fun GuidePlayer(
     initialStep: Int,
     largeText: Boolean,
     tabletLayout: Boolean,
+    simpleLanguage: Boolean,
+    autoRead: Boolean,
     onExit: () -> Unit,
     onProgress: (String, Int) -> Unit,
     onComplete: (String) -> Unit,
-    onSpeak: (String) -> Unit
+    onSpeak: (String) -> Unit,
+    onShare: (Guide) -> Unit
 ) {
     var stepIndex by rememberSaveable(guide.id) { mutableIntStateOf(initialStep.coerceIn(0, guide.steps.lastIndex)) }
     var showStuckHelp by rememberSaveable(guide.id) { mutableStateOf(false) }
@@ -1705,6 +1714,9 @@ private fun GuidePlayer(
         if (stepIndex == 0 && initialStep > 0) stepIndex = initialStep.coerceIn(0, guide.steps.lastIndex)
     }
     val step = guide.steps[stepIndex]
+    LaunchedEffect(guide.id, stepIndex, autoRead) {
+        if (autoRead) onSpeak("${step.title}. ${step.instruction}")
+    }
     val progressFraction = (stepIndex + 1).toFloat() / guide.steps.size
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -1722,6 +1734,9 @@ private fun GuidePlayer(
             IconButton(onClick = { onSpeak("${guide.title}. Stap ${stepIndex + 1}. ${step.title}. ${step.instruction}") }, modifier = Modifier.semantics { contentDescription = "Lees deze stap voor" }) {
                 Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null, tint = Teal)
             }
+            IconButton(onClick = { onShare(guide) }, modifier = Modifier.semantics { contentDescription = "Deel deze handleiding" }) {
+                Icon(Icons.Outlined.Share, contentDescription = null, tint = Teal)
+            }
         }
         HorizontalDivider(color = Border)
         Column(
@@ -1737,14 +1752,14 @@ private fun GuidePlayer(
             )
             if (tabletLayout) {
                 Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.Top) {
-                    StepCard(step.title, step.instruction, step.tip, largeText, Modifier.weight(1.6f), onSpeak = { onSpeak("${step.title}. ${step.instruction}") })
+                    StepCard(step.title, step.instruction, step.tip, step.imageUri, largeText, Modifier.weight(1.6f), onSpeak = { onSpeak("${step.title}. ${step.instruction}") })
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         MaterialsCard(guide.steps.size, guide.minutes, largeText)
                         guide.safetyNote?.let { SafetyCard(it, largeText) }
                     }
                 }
             } else {
-                StepCard(step.title, step.instruction, step.tip, largeText, Modifier.fillMaxWidth(), onSpeak = { onSpeak("${step.title}. ${step.instruction}") })
+                StepCard(step.title, step.instruction, step.tip, step.imageUri, largeText, Modifier.fillMaxWidth(), onSpeak = { onSpeak("${step.title}. ${step.instruction}") })
                 MaterialsCard(guide.steps.size, guide.minutes, largeText)
                 guide.safetyNote?.let { SafetyCard(it, largeText) }
             }
@@ -1752,17 +1767,22 @@ private fun GuidePlayer(
                 Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Outlined.Lightbulb, contentDescription = null, tint = Gold)
-                        Text("Loop je vast?", color = Ink, fontWeight = FontWeight.Bold)
+                        Text(if (simpleLanguage) "Hulp nodig?" else "Loop je vast?", color = Ink, fontWeight = FontWeight.Bold)
                     }
-                    Text("Je hoeft niet te haasten. Lees de stap nog eens, probeer de tip of vraag iemand die je vertrouwt om mee te kijken.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                    Text(
+                        if (simpleLanguage) "Lukt het niet? Dat geeft niet. Lees de stap rustig nog eens. Vraag iemand die je vertrouwt om hulp als dat fijn is."
+                        else "Je hoeft niet te haasten. Lees de stap nog eens, probeer de tip of vraag iemand die je vertrouwt om mee te kijken.",
+                        color = Ink,
+                        fontSize = if (largeText) 16.sp else 14.sp
+                    )
                     if (showStuckHelp) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("1. Maak het kleiner", color = Teal, fontWeight = FontWeight.Bold)
-                            Text("Splits deze stap op in één kleine handeling. Controleer alleen dat ene onderdeel voordat je verdergaat.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
-                            Text("2. Vraag gericht om hulp", color = Teal, fontWeight = FontWeight.Bold)
-                            Text("Vertel wat je wilde doen, wat er gebeurde en welke foutmelding of vraag je ziet. Deel geen wachtwoorden of herstelcodes.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
-                            Text("3. Pauzeer en probeer later opnieuw", color = Teal, fontWeight = FontWeight.Bold)
-                            Text("Als je gefrustreerd raakt of iets onveilig voelt, stop dan. Bewaar waar je bent gebleven en probeer het later opnieuw of vraag iemand die je vertrouwt.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                            Text(if (simpleLanguage) "Doe alleen het eerste kleine stukje." else "Splits deze stap op in één kleine handeling. Controleer alleen dat ene onderdeel voordat je verdergaat.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                            Text("2. Vraag om hulp", color = Teal, fontWeight = FontWeight.Bold)
+                            Text(if (simpleLanguage) "Vertel wat je probeert te doen en waar je vastloopt. Deel nooit wachtwoorden of herstelcodes." else "Vertel wat je wilde doen, wat er gebeurde en welke foutmelding of vraag je ziet. Deel geen wachtwoorden of herstelcodes.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
+                            Text("3. Neem een pauze", color = Teal, fontWeight = FontWeight.Bold)
+                            Text(if (simpleLanguage) "Stop even als je boos of onzeker wordt. Probeer het later opnieuw of vraag iemand om mee te kijken." else "Als je gefrustreerd raakt of iets onveilig voelt, stop dan. Bewaar waar je bent gebleven en probeer het later opnieuw of vraag iemand die je vertrouwt.", color = Ink, fontSize = if (largeText) 16.sp else 14.sp)
                         }
                     }
                     TextButton(onClick = { showStuckHelp = !showStuckHelp }) {
@@ -1806,6 +1826,7 @@ private fun StepCard(
     title: String,
     instruction: String,
     tip: String?,
+    imageUri: String?,
     largeText: Boolean,
     modifier: Modifier = Modifier,
     onSpeak: () -> Unit
@@ -1817,6 +1838,7 @@ private fun StepCard(
             }
             Text(title, color = Ink, fontWeight = FontWeight.Bold, fontSize = if (largeText) 27.sp else 22.sp)
             Text(instruction, color = Ink, fontSize = if (largeText) 21.sp else 17.sp, lineHeight = if (largeText) 30.sp else 25.sp)
+            if (imageUri != null) GuidePhoto(imageUri, Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp)))
             if (!tip.isNullOrBlank()) {
                 HorizontalDivider(color = Border)
                 Text("Tip", color = Teal, fontWeight = FontWeight.Bold, fontSize = if (largeText) 17.sp else 14.sp)
