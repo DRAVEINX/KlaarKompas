@@ -86,6 +86,30 @@ object MoodDiaryCodec {
 }
 
 @Composable
+private fun DrawingPreview(drawing: String) {
+    val inkColor = MaterialTheme.colorScheme.onSurface
+    Canvas(Modifier.fillMaxWidth().height(110.dp).padding(4.dp)) {
+        drawing.take(MoodDiaryCodec.MAX_DRAWING_LENGTH).split("|").take(80).forEach { encodedStroke ->
+            val points = encodedStroke.split(";").take(300).mapNotNull { token ->
+                val parts = token.split(",")
+                val x = parts.getOrNull(0)?.toFloatOrNull()
+                val y = parts.getOrNull(1)?.toFloatOrNull()
+                if (x == null || y == null) null
+                else Offset(x.coerceIn(0f, 1f) * size.width, y.coerceIn(0f, 1f) * size.height)
+            }
+            if (points.isNotEmpty()) {
+                val path = Path().apply {
+                    moveTo(points.first().x, points.first().y)
+                    points.drop(1).forEach { lineTo(it.x, it.y) }
+                }
+                drawPath(path, inkColor, style = Stroke(width = 3f, cap = StrokeCap.Round))
+                if (points.size == 1) drawCircle(inkColor, 2f, points.first())
+            }
+        }
+    }
+}
+
+@Composable
 fun MoodDiaryScreen(
     entries: List<MoodDiaryEntry>,
     largeText: Boolean,
@@ -206,7 +230,7 @@ fun MoodDiaryScreen(
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("${entry.date} • ${entry.mood}", style = MaterialTheme.typography.titleMedium)
                         if (entry.note.isNotBlank()) Text(entry.note, fontSize = textSize)
-                        if (entry.drawing.isNotBlank()) Text("Bevat een tekening")
+                        if (entry.drawing.isNotBlank()) DrawingPreview(entry.drawing)
                         OutlinedButton(onClick = {
                             onReadAloud(buildString {
                                 append("${entry.date}. Je voelde je ${entry.mood}. ")
