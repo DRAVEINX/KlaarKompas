@@ -33,6 +33,7 @@
 
 ## Content, privacy and Play Store
 - [ ] Review the Dutch store listing and screenshots for both the phone and tablet editions.
+- [ ] Confirm the in-app “Lees de privacyverklaring” link opens the public policy page.
 - [ ] Complete and publish the privacy policy at a public, stable HTTPS URL; open it in a signed-out browser to verify access.
 - [ ] Verify the Data safety form against the exact released code and every included SDK.
 - [ ] Complete content rating, app access, ads declarations and any other Play Console forms truthfully.
