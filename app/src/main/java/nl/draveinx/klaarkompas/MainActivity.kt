@@ -911,7 +911,7 @@ private fun SavedScreen(
                 item { EmptyState("Je gidsen staan hier", "Bewaar een handleiding als favoriet, maak zelf een gids of start er een om later verder te gaan.", Icons.Outlined.BookmarkBorder) }
             } else {
                 item { SectionHeading("Bewaard en zelfgemaakt", "Eigen gidsen kun je aanpassen, kopiëren of verwijderen.") }
-                items(savedGuides, key = { "saved-\${it.id}" }) { guide ->
+                items(savedGuides, key = { "saved-${it.id}" }) { guide ->
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         GuideCard(
                             guide = guide,
@@ -938,7 +938,7 @@ private fun SavedScreen(
                                     Spacer(Modifier.width(4.dp))
                                     Text("Kopiëren")
                                 }
-                                IconButton(onClick = { pendingDelete = guide }, modifier = Modifier.semantics { contentDescription = "Verwijder \${guide.title}" }) {
+                                IconButton(onClick = { pendingDelete = guide }, modifier = Modifier.semantics { contentDescription = "Verwijder ${guide.title}" }) {
                                     Icon(Icons.Outlined.Delete, contentDescription = null, tint = Color(0xFFFF887F))
                                 }
                             }
@@ -953,7 +953,7 @@ private fun SavedScreen(
             AlertDialog(
                 onDismissRequest = { pendingDelete = null },
                 title = { Text("Handleiding verwijderen?") },
-                text = { Text("‘\${selectedForDelete.title}’ wordt van dit apparaat verwijderd. Maak eerst een back-up als je hem wilt bewaren.") },
+                text = { Text("‘${selectedForDelete.title}’ wordt van dit apparaat verwijderd. Maak eerst een back-up als je hem wilt bewaren.") },
                 confirmButton = {
                     TextButton(onClick = {
                         onDelete(selectedForDelete)
@@ -986,7 +986,7 @@ private fun CreateGuideScreen(
     var safetyNote by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.safetyNote.orEmpty()) }
     var stepsText by rememberSaveable(initialGuide?.id) {
         mutableStateOf(initialGuide?.steps?.joinToString("\n") { step ->
-            "\${step.title}: \${step.instruction}" + (step.tip?.let { " | Tip: $it" } ?: "")
+            "${step.title}: ${step.instruction}" + (step.tip?.let { " | Tip: $it" } ?: "")
         }.orEmpty())
     }
     var coverImageUri by rememberSaveable(initialGuide?.id) { mutableStateOf(initialGuide?.coverImageUri) }
@@ -1003,7 +1003,7 @@ private fun CreateGuideScreen(
         val tipParts = line.split("| Tip:", limit = 2)
         val body = tipParts[0]
         val parts = body.split(":", limit = 2)
-        val stepTitle = if (parts.size == 2) parts[0].trim().ifBlank { "Stap \${index + 1}" } else "Stap \${index + 1}"
+        val stepTitle = if (parts.size == 2) parts[0].trim().ifBlank { "Stap ${index + 1}" } else "Stap ${index + 1}"
         val instruction = if (parts.size == 2) parts[1].trim() else body
         GuideStep(
             title = stepTitle,
@@ -1112,7 +1112,7 @@ private fun CreateGuideScreen(
                     placeholder = { Text("Titel: uitleg | Tip: extra uitleg") },
                     minLines = 5,
                     maxLines = 12,
-                    supportingText = { Text("\${parsedSteps.size}/20 stappen") }
+                    supportingText = { Text("${parsedSteps.size}/20 stappen") }
                 )
                 TextButton(onClick = { startDictation("steps") }) {
                     Icon(Icons.Outlined.Mic, contentDescription = null)
@@ -1124,7 +1124,7 @@ private fun CreateGuideScreen(
                     IconButton(onClick = { selectedStepForPhoto = (selectedStepForPhoto - 1).coerceAtLeast(0) }, enabled = selectedStepForPhoto > 0) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Vorige stap")
                     }
-                    Text("Stap \${selectedStepForPhoto + 1}", modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                    Text("Stap ${selectedStepForPhoto + 1}", modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                     IconButton(onClick = { selectedStepForPhoto = (selectedStepForPhoto + 1).coerceAtMost((parsedSteps.size - 1).coerceAtLeast(0)) }, enabled = selectedStepForPhoto < parsedSteps.lastIndex) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "Volgende stap")
                     }
@@ -1161,7 +1161,7 @@ private fun CreateGuideScreen(
         Button(
             onClick = {
                 onSave(Guide(
-                    id = initialGuide?.id ?: "custom-\${UUID.randomUUID()}",
+                    id = initialGuide?.id ?: "custom-${UUID.randomUUID()}",
                     title = title.trim(),
                     summary = summary.trim().ifBlank { "Een persoonlijke handleiding." },
                     category = category,
@@ -1295,8 +1295,8 @@ private fun DashboardScreen(
     val completedToday = todayTasks.count { it.completed }
     val todaySummary = when {
         todayTasks.isEmpty() -> "Nog geen taken gepland"
-        completedToday == todayTasks.size -> "\$completedToday van \${todayTasks.size} taken afgerond"
-        else -> "\${todayTasks.size} geplande taken"
+        completedToday == todayTasks.size -> "$completedToday van ${todayTasks.size} taken afgerond"
+        else -> "${todayTasks.size} geplande taken"
     }
     val recentGuides = recentGuideIds.mapNotNull { id -> guides.firstOrNull { it.id == id } }
     val favoriteGuides = guides.filter { it.id in favorites }.take(4)
@@ -1357,19 +1357,19 @@ private fun DashboardScreen(
         }
         if (inProgress.isNotEmpty()) {
             item { SectionHeading("Ga verder", "Je voortgang is op dit apparaat bewaard.") }
-            items(inProgress, key = { "dash-progress-\${it.id}" }) { guide ->
+            items(inProgress, key = { "dash-progress-${it.id}" }) { guide ->
                 GuideCard(guide, guide.id in favorites, progress[guide.id], guide.id in completed, largeText, { onOpen(guide.id) }, { onToggleFavorite(guide.id) })
             }
         }
         if (recentGuides.isNotEmpty()) {
             item { SectionHeading("Recent geopend", "Pak een gids er snel weer bij.") }
-            items(recentGuides.take(4), key = { "recent-\${it.id}" }) { guide ->
+            items(recentGuides.take(4), key = { "recent-${it.id}" }) { guide ->
                 GuideCard(guide, guide.id in favorites, progress[guide.id], guide.id in completed, largeText, { onOpen(guide.id) }, { onToggleFavorite(guide.id) })
             }
         }
         if (favoriteGuides.isNotEmpty()) {
             item { SectionHeading("Jouw favorieten", "Gidsen die je vaker gebruikt.") }
-            items(favoriteGuides, key = { "dash-fav-\${it.id}" }) { guide ->
+            items(favoriteGuides, key = { "dash-fav-${it.id}" }) { guide ->
                 GuideCard(guide, true, progress[guide.id], guide.id in completed, largeText, { onOpen(guide.id) }, { onToggleFavorite(guide.id) })
             }
         }
@@ -1512,11 +1512,11 @@ private fun PlannerScreen(
                     }
                 }
             }
-            item { SectionHeading("Taken voor deze dag", "\${dayTasks.count { it.completed }} van \${dayTasks.size} afgerond") }
+            item { SectionHeading("Taken voor deze dag", "${dayTasks.count { it.completed }} van ${dayTasks.size} afgerond") }
             if (dayTasks.isEmpty()) {
                 item { EmptyState("Nog geen taken gepland", "Voeg hierboven een taak toe. De planning blijft lokaal op dit apparaat.", Icons.Outlined.CalendarMonth) }
             } else {
-                items(dayTasks, key = { "planner-\${it.id}" }) { task ->
+                items(dayTasks, key = { "planner-${it.id}" }) { task ->
                     Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Border)) {
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -1536,7 +1536,7 @@ private fun PlannerScreen(
                                 }
                                 Text(subtitle, color = if (task.reminderEnabled) Teal else Muted, fontSize = 12.sp)
                             }
-                            IconButton(onClick = { onDeleteTask(task) }, modifier = Modifier.semantics { contentDescription = "Verwijder taak \${task.title}" }) {
+                            IconButton(onClick = { onDeleteTask(task) }, modifier = Modifier.semantics { contentDescription = "Verwijder taak ${task.title}" }) {
                                 Icon(Icons.Outlined.Delete, contentDescription = null, tint = Muted)
                             }
                         }
