@@ -1,6 +1,8 @@
 package nl.draveinx.klaarkompas
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
@@ -119,6 +121,7 @@ private val CompletedKey = stringSetPreferencesKey("completed_guides")
 private val ProgressKey = stringPreferencesKey("guide_progress")
 private val LargeTextKey = booleanPreferencesKey("large_text")
 private val CustomGuidesKey = stringPreferencesKey("custom_guides_v1")
+private const val PrivacyPolicyUrl = "https://github.com/DRAVEINX/KlaarKompas/blob/main/docs/PRIVACY_POLICY_NL.md"
 
 private val Ink = Color(0xFF152438)
 private val Teal = Color(0xFF16756D)
@@ -622,6 +625,7 @@ private fun CreateGuideScreen(
 
 @Composable
 private fun SettingsScreen(largeText: Boolean, onLargeTextChange: (Boolean) -> Unit) {
+    val context = LocalContext.current
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -641,7 +645,18 @@ private fun SettingsScreen(largeText: Boolean, onLargeTextChange: (Boolean) -> U
         Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Offline en privacy", fontWeight = FontWeight.SemiBold, fontSize = if (largeText) 19.sp else 16.sp)
-                Text("De gidsenbibliotheek, favorieten en voortgang werken lokaal op dit toestel. In deze eerste versie is geen account nodig en worden er geen gegevens naar een server gestuurd.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
+                Text("Gidsen, favorieten, voortgang en eigen gidsen worden lokaal bewaard. Deze versie heeft geen account of eigen synchronisatie. Bij voorlezen gebruikt Android de tekst-naar-spraakdienst die op jouw toestel is ingesteld.", color = Muted, fontSize = if (largeText) 16.sp else 14.sp)
+                TextButton(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PrivacyPolicyUrl))
+                        if (intent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(intent)
+                        }
+                    },
+                    modifier = Modifier.semantics { contentDescription = "Lees de privacyverklaring" }
+                ) {
+                    Text("Lees de privacyverklaring", fontSize = if (largeText) 16.sp else 14.sp)
+                }
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Mint), shape = RoundedCornerShape(20.dp)) {
