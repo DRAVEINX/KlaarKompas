@@ -2,9 +2,9 @@
 
 **Kleine stappen. Echte vooruitgang.**
 
-**Source version: 0.2.0**
+**Source version: 0.3.0**
 
-KlaarKompas is an offline-first Dutch-language Android app with separate phone and tablet editions. It helps people find practical guides, follow one step at a time, listen to instructions, save favourites, create personal guides and resume progress.
+KlaarKompas is an offline-first Dutch-language Android app with separate phone and tablet editions. It helps people find practical guides, follow one step at a time, dictate and listen to instructions, plan daily tasks with optional reminders, edit illustrated personal guides, back up and restore personal data, share guides and adapt the interface for accessibility.
 
 ## Included in this MVP
 
@@ -13,8 +13,14 @@ KlaarKompas is an offline-first Dutch-language Android app with separate phone a
 - One-step-at-a-time guide flow with progress, previous/next, completion and an “Ik loop vast” helper with three alternatives.
 - Create personal guides with up to 20 steps; personal guides are saved locally and included in search and “Mijn gidsen”.
 - URL-safe Base64 persistence for personal guides to protect punctuation and multiline instructions from corrupting saved records.
-- Text-to-speech, TalkBack-friendly labelled controls and a larger-text setting.
-- Local favourites and progress storage through Android DataStore; no login or network permission is requested by the current MVP.
+- Text-to-speech and Dutch dictation through the Android speech service, with TalkBack-friendly labelled controls.
+- Personal dashboard with recent guides, favourites, resumable progress and the day overview.
+- Local daily planner with date selection, completion checkboxes and optional Android notifications.
+- Edit, duplicate and delete personal guides; attach a cover photo and per-step photos; add optional tips and safety notes.
+- ZIP backup and restore for local preferences, planner tasks, progress, personal guides and guide photos.
+- Accessibility profile with larger text, high contrast, simpler help text and optional automatic step reading.
+- Share guide text through Android's share chooser.
+- Local-only storage through Android DataStore; no account, cloud sync or online portal is included in this release.
 - Responsive layouts: compact bottom navigation on phones and a navigation sidebar / wider guided layout on larger screens.
 - Separate `phone` and `tablet` product flavors.
 
