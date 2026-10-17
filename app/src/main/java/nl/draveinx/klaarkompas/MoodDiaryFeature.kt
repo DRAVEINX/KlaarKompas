@@ -97,6 +97,7 @@ fun MoodDiaryScreen(
     var strokes by remember { mutableStateOf<List<List<Offset>>>(emptyList()) }
     var currentStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
     val textSize = if (largeText) 19.sp else 15.sp
+    val inkColor = MaterialTheme.colorScheme.onSurface
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -173,8 +174,8 @@ fun MoodDiaryScreen(
                                 moveTo(points.first().x * size.width, points.first().y * size.height)
                                 points.drop(1).forEach { lineTo(it.x * size.width, it.y * size.height) }
                             }
-                            drawPath(path, MaterialTheme.colorScheme.onSurface, style = Stroke(width = 4f, cap = StrokeCap.Round))
-                            if (points.size == 1) drawCircle(MaterialTheme.colorScheme.onSurface, 2f, Offset(points[0].x * size.width, points[0].y * size.height))
+                            drawPath(path, inkColor, style = Stroke(width = 4f, cap = StrokeCap.Round))
+                            if (points.size == 1) drawCircle(inkColor, 2f, Offset(points[0].x * size.width, points[0].y * size.height))
                         }
                     }
                 }
